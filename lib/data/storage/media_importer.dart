@@ -1,0 +1,287 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:audiotags/audiotags.dart';
+import 'package:crypto/crypto.dart';
+import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
+
+import '../../core/app_paths.dart';
+import '../db/database.dart';
+import '../platform/native_media.dart';
+
+/// 가져오기 한 건의 결과.
+class ImportResult {
+  const ImportResult({required this.added, required this.skipped, this.errors = 0});
+
+  final int added;
+  final int skipped;
+  final int errors;
+
+  String get summary {
+    final parts = <String>['$added곡 추가'];
+    if (skipped > 0) parts.add('$skipped곡은 이미 있음');
+    if (errors > 0) parts.add('$errors곡 실패');
+    return parts.join(' · ');
+  }
+}
+
+/// 음원을 라이브러리에 들여오는 일을 맡는다.
+///
+/// 원칙이 하나 있다. 원본 파일에는 절대 쓰지 않는다. 태그와 자켓은 가져오는
+/// 순간 읽어서 앱 DB와 앱 폴더에 복사해두고, 이후로는 그 사본만 본다. 다른
+/// 앱이 원본 파일의 태그나 자켓을 바꿔도 우리가 보여주는 값은 그대로다.
+class MediaImporter {
+  MediaImporter(this.db);
+
+  final AppDatabase db;
+
+  static const Set<String> supportedExtensions = {
+    '.mp3',
+    '.flac',
+    '.wav',
+    '.ogg',
+    '.oga',
+    '.opus',
+    '.m4a',
+    '.aac',
+  };
+
+  static bool isSupported(String path) =>
+      supportedExtensions.contains(p.extension(path).toLowerCase());
+
+  /// 아티스트·앨범·제목을 정규화한 키.
+  ///
+  /// 두 사람이 같은 곡에 붙인 설정을 맞출 때 쓴다. 파일이 서로 달라도 같은
+  /// 곡이면 같은 키가 나오게 한다.
+  static String contentKeyFor(String artist, String album, String title) {
+    String norm(String s) => s
+        .toLowerCase()
+        .replaceAll(RegExp(r'[\s_\-\.]+'), '')
+        .replaceAll(RegExp(r'[^\w가-힣]'), '');
+    return '${norm(artist)}|${norm(album)}|${norm(title)}';
+  }
+
+  static String _stableKey(String input) =>
+      sha1.convert(utf8.encode(input)).toString().substring(0, 16);
+
+  /// 파일 하나를 라이브러리에 넣는다.
+  ///
+  /// [copyIntoApp]이 참이면 앱 저장소로 복사한다. iOS는 항상 참이어야 하고,
+  /// 안드로이드는 원본 경로를 읽을 수 있으면 거짓으로 두어 용량을 아낀다.
+  Future<bool> importFile(
+    String sourcePath, {
+    required bool copyIntoApp,
+    String? fallbackTitle,
+    String? fallbackArtist,
+    String? fallbackAlbum,
+    int? fallbackDurationMs,
+  }) async {
+    try {
+      final src = File(sourcePath);
+      if (!src.existsSync()) return false;
+
+      var playPath = sourcePath;
+      if (copyIntoApp) {
+        final destName =
+            '${_stableKey(sourcePath)}${p.extension(sourcePath).toLowerCase()}';
+        final dest = File(p.join(AppPaths.instance.media.path, destName));
+        if (!dest.existsSync()) {
+          await src.copy(dest.path);
+        }
+        playPath = dest.path;
+      }
+
+      final existing = await (db.select(db.tracks)
+            ..where((t) => t.filePath.equals(playPath)))
+          .getSingleOrNull();
+      if (existing != null) return false;
+
+      final snap = await _snapshot(
+        readFrom: sourcePath,
+        playPath: playPath,
+        fallbackTitle: fallbackTitle,
+        fallbackArtist: fallbackArtist,
+        fallbackAlbum: fallbackAlbum,
+        fallbackDurationMs: fallbackDurationMs,
+        managed: copyIntoApp,
+      );
+
+      await db.into(db.tracks).insert(snap, mode: InsertMode.insertOrIgnore);
+      return true;
+    } catch (e) {
+      debugPrint('가져오기 실패 [$sourcePath]: $e');
+      return false;
+    }
+  }
+
+  /// 기기 미디어 저장소에서 찾은 항목을 넣는다.
+  Future<bool> importNativeItem(NativeAudioItem item) async {
+    final path = item.path;
+    if (path != null && File(path).existsSync()) {
+      // 원본을 읽을 수 있으면 복사하지 않고 참조만 한다.
+      return importFile(
+        path,
+        copyIntoApp: false,
+        fallbackTitle: item.title,
+        fallbackArtist: item.artist,
+        fallbackAlbum: item.album,
+        fallbackDurationMs: item.durationMs,
+      );
+    }
+
+    // 경로를 못 읽으면 content URI에서 앱 저장소로 복사한다.
+    final destName = '${_stableKey(item.uri)}.audio';
+    final dest = p.join(AppPaths.instance.media.path, destName);
+    if (!File(dest).existsSync()) {
+      final ok = await NativeMedia.instance.copyUriToFile(item.uri, dest);
+      if (!ok) return false;
+    }
+    return importFile(
+      dest,
+      copyIntoApp: false,
+      fallbackTitle: item.title,
+      fallbackArtist: item.artist,
+      fallbackAlbum: item.album,
+      fallbackDurationMs: item.durationMs,
+    );
+  }
+
+  /// 태그와 자켓을 읽어 DB에 넣을 형태로 만든다.
+  Future<TracksCompanion> _snapshot({
+    required String readFrom,
+    required String playPath,
+    required bool managed,
+    String? fallbackTitle,
+    String? fallbackArtist,
+    String? fallbackAlbum,
+    int? fallbackDurationMs,
+  }) async {
+    Tag? tag;
+    try {
+      tag = await AudioTags.read(readFrom);
+    } catch (e) {
+      debugPrint('태그 읽기 실패 [$readFrom]: $e');
+    }
+
+    final title = _firstNonEmpty([
+      tag?.title,
+      fallbackTitle,
+      p.basenameWithoutExtension(readFrom),
+    ]);
+    final artist =
+        _firstNonEmpty([tag?.trackArtist, fallbackArtist, '알 수 없는 아티스트']);
+    final album = _firstNonEmpty([tag?.album, fallbackAlbum, '']);
+    final albumArtist = _firstNonEmpty([tag?.albumArtist, artist]);
+
+    final durationMs = tag?.duration != null && tag!.duration! > 0
+        ? tag.duration! * 1000
+        : (fallbackDurationMs ?? 0);
+
+    final artworkPath = await _extractArtwork(tag, playPath, readFrom);
+
+    var size = 0;
+    try {
+      size = File(playPath).lengthSync();
+    } catch (_) {}
+
+    return TracksCompanion.insert(
+      filePath: playPath,
+      title: title,
+      managed: Value(managed),
+      artist: Value(artist),
+      album: Value(album),
+      albumArtist: Value(albumArtist),
+      year: Value(tag?.year),
+      trackNo: Value(tag?.trackNumber),
+      durationMs: Value(durationMs),
+      sizeBytes: Value(size),
+      artworkPath: Value(artworkPath),
+      contentKey: Value(contentKeyFor(artist, album, title)),
+      importedAt: DateTime.now(),
+    );
+  }
+
+  /// 자켓 확보 순서: 파일에 박힌 그림 → 같은 폴더의 표지 파일.
+  ///
+  /// 온라인 조회는 하지 않는다. 자동으로 자켓을 바꾸는 동작이 이 앱에서
+  /// 피하려는 바로 그 문제다.
+  Future<String?> _extractArtwork(
+    Tag? tag,
+    String playPath,
+    String readFrom,
+  ) async {
+    final key = _stableKey(playPath);
+    final dest = AppPaths.instance.artworkFileFor(key);
+
+    if (File(dest).existsSync()) return dest;
+
+    final pics = tag?.pictures ?? const [];
+    if (pics.isNotEmpty) {
+      try {
+        final bytes = pics.first.bytes;
+        if (bytes.isNotEmpty) {
+          await File(dest).writeAsBytes(bytes, flush: true);
+          return dest;
+        }
+      } catch (e) {
+        debugPrint('자켓 저장 실패: $e');
+      }
+    }
+
+    // 폴더에 놓인 표지 파일을 찾아본다.
+    try {
+      final dir = Directory(p.dirname(readFrom));
+      if (dir.existsSync()) {
+        const names = ['cover', 'folder', 'front', 'albumart'];
+        const exts = ['.jpg', '.jpeg', '.png'];
+        for (final n in names) {
+          for (final e in exts) {
+            final f = File(p.join(dir.path, '$n$e'));
+            if (f.existsSync()) {
+              await f.copy(dest);
+              return dest;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('폴더 표지 탐색 실패: $e');
+    }
+
+    return null;
+  }
+
+  static String _firstNonEmpty(List<String?> candidates) {
+    for (final c in candidates) {
+      if (c != null && c.trim().isNotEmpty) return c.trim();
+    }
+    return '';
+  }
+
+  /// 사용자가 고른 이미지를 이 곡의 자켓으로 지정한다.
+  ///
+  /// 이 값은 어떤 자동 동작으로도 덮어쓰지 않는다.
+  Future<void> setUserArtwork(int trackId, String imagePath) async {
+    final dest = AppPaths.instance.userArtworkFileFor('t$trackId');
+    await File(imagePath).copy(dest);
+    await (db.update(db.tracks)..where((t) => t.id.equals(trackId)))
+        .write(TracksCompanion(userArtworkPath: Value(dest)));
+  }
+
+  /// 사용자가 지정한 자켓을 지우고 원래 자켓으로 되돌린다.
+  Future<void> clearUserArtwork(int trackId) async {
+    final row = await (db.select(db.tracks)..where((t) => t.id.equals(trackId)))
+        .getSingleOrNull();
+    final path = row?.userArtworkPath;
+    if (path != null) {
+      try {
+        final f = File(path);
+        if (f.existsSync()) await f.delete();
+      } catch (_) {}
+    }
+    await (db.update(db.tracks)..where((t) => t.id.equals(trackId)))
+        .write(const TracksCompanion(userArtworkPath: Value(null)));
+  }
+}
