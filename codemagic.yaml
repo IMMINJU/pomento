@@ -1,16 +1,21 @@
 # Codemagic 빌드 설정.
 #
-# 안드로이드는 지금 바로 돌아간다. iOS는 App Store Connect API 키를 Codemagic에
-# 등록해야 서명과 TestFlight 업로드가 된다. 등록 전에는 ios-debug로 컴파일만
-# 확인할 수 있다.
+# 안드로이드는 지금 바로 돌아간다. iOS는 준비가 더 필요하다. 아래 순서대로
+# 하는 것이 실패를 가장 적게 겪는 길이다.
 #
-# 준비할 것
-#   1. Apple Developer Program 개인 가입
-#   2. App Store Connect > 사용자 및 액세스 > 통합 > App Store Connect API에서
-#      키를 만들고, Codemagic의 Teams > Integrations > App Store Connect에
-#      `pomento-asc` 라는 이름으로 등록
-#   3. App Store Connect에서 앱 레코드 생성 (번들 ID com.pomento.app)
-#   4. TestFlight > 내부 테스트에 테스터 추가
+#   1) ios-compile 워크플로를 먼저 돌린다. 애플 계정 없이도 되고, iOS 코드가
+#      실제로 컴파일되는지만 확인한다.
+#   2) Apple Developer Program 개인 가입.
+#   3) App Store Connect에서 API 키를 만들고, Codemagic의
+#      Teams > Integrations > App Store Connect에 `pomento-asc` 이름으로 등록.
+#   4) App Store Connect에서 앱 레코드 생성 (번들 ID com.pomento.app).
+#      이건 API로 못 만든다. 애플이 막아뒀다.
+#   5) TestFlight에 내부 테스트 그룹 `Pomento Internal`을 만들고 테스터 추가.
+#   6) ios-testflight 워크플로 실행.
+#
+# 서명은 자동 방식 한 가지만 쓴다. environment.ios_signing은 이미 있는
+# 프로파일을 가져오기만 하고 만들지는 않는다. 두 방식을 섞으면
+# "No matching profiles found"로 죽는다.
 
 definitions:
   base_env: &base_env
@@ -18,19 +23,20 @@ definitions:
     xcode: latest
     java: 21
 
-  common_scripts:
-    - &pub_get
-      name: 의존성 받기
-      script: flutter pub get
-    - &codegen
-      name: drift 코드 생성
-      script: dart run build_runner build
-    - &analyze
-      name: 정적 분석
-      script: flutter analyze lib test
-    - &unit_test
-      name: 단위 테스트
-      script: flutter test
+  # 스텝은 하나씩 앵커를 단다. 리스트 앵커를 리스트 안에 넣으면 중첩돼서
+  # Codemagic이 못 읽는다.
+  pub_get: &pub_get
+    name: 의존성 받기
+    script: flutter pub get
+  codegen: &codegen
+    name: drift 코드 생성
+    script: dart run build_runner build
+  analyze: &analyze
+    name: 정적 분석
+    script: flutter analyze lib test
+  unit_test: &unit_test
+    name: 단위 테스트
+    script: flutter test
 
 workflows:
   android:
@@ -45,16 +51,13 @@ workflows:
       - *analyze
       - *unit_test
       - name: APK 빌드
-        script: |
-          flutter build apk --release \
-            --build-number=$PROJECT_BUILD_NUMBER
+        script: flutter build apk --release --build-number=$PROJECT_BUILD_NUMBER
     artifacts:
       - build/**/outputs/**/*.apk
-      - flutter_drive.log
 
-  ios-debug:
-    # 서명 없이 컴파일만 확인한다. Apple 계정이 준비되기 전에 iOS 쪽 코드가
-    # 깨지지 않았는지 보려는 용도다.
+  ios-compile:
+    # 서명 없이 컴파일만 확인한다. 애플 계정이 준비되기 전에 iOS 쪽 코드가
+    # 깨지지 않았는지 보려는 용도라 여기부터 돌리는 것이 좋다.
     name: iOS 컴파일 확인
     instance_type: mac_mini_m2
     max_build_duration: 60
@@ -64,10 +67,9 @@ workflows:
       - *pub_get
       - *codegen
       - *analyze
+      - *unit_test
       - name: 서명 없이 빌드
         script: flutter build ios --release --no-codesign
-    artifacts:
-      - build/ios/iphoneos/*.app
 
   ios-testflight:
     name: iOS TestFlight
@@ -77,26 +79,28 @@ workflows:
       app_store_connect: pomento-asc
     environment:
       <<: *base_env
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.pomento.app
+      vars:
+        BUNDLE_ID: "com.pomento.app"
     scripts:
       - *pub_get
       - *codegen
       - *analyze
       - *unit_test
-      - name: 프로비저닝 프로파일 적용
+      # fetch-signing-files가 --create와 함께 돌면 번들 ID, 배포 인증서,
+      # 프로비저닝 프로파일 중 없는 것을 만들어준다. 애플 계정의 배포
+      # 인증서는 3개까지만 만들 수 있으니, 이미 3개라면 하나 지워야 한다.
+      - name: 서명 파일 준비
         script: |
           keychain initialize
-          app-store-connect fetch-signing-files "com.pomento.app" \
-            --type IOS_APP_STORE --create
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create
           keychain add-certificates
           xcode-project use-profiles
       - name: IPA 빌드
         script: |
           flutter build ipa --release \
-            --build-number=$(app-store-connect get-latest-testflight-build-number \
-              "$APP_STORE_APPLE_ID" --increment) \
+            --build-number=$PROJECT_BUILD_NUMBER \
             --export-options-plist=/Users/builder/export_options.plist
     artifacts:
       - build/ios/ipa/*.ipa
@@ -104,8 +108,8 @@ workflows:
     publishing:
       app_store_connect:
         auth: integration
+        # 내부 테스터는 심사 없이 바로 설치할 수 있다. 그룹 이름은 App Store
+        # Connect에서 만든 것과 글자까지 같아야 한다.
         submit_to_testflight: true
-        # 내부 테스터는 심사 없이 바로 설치할 수 있다. 그룹 이름은
-        # App Store Connect에서 만든 것과 같아야 한다.
         beta_groups:
-          - Pomento 내부
+          - Pomento Internal
