@@ -1,62 +1,66 @@
-# MVP 구현 목록
+# Pomento 진행 상황
 
-디자인은 나중에 붙인다. 지금은 기능만.
+## 된 것
 
-## A. 골격
-- [x] flutter create (com.minju.player)
-- [ ] 의존성 추가
-- [ ] 폴더 구조 / 앱 진입점 / Riverpod 루트
+### 데이터와 라이브러리
+- [x] Drift 스키마 (tracks, playlists, presets, track_settings, key_values)
+- [x] 기기 음원 스캔 (Android MediaStore), 파일 선택으로 가져오기
+- [x] 태그와 자켓 스냅샷. 원본 파일에는 쓰지 않는다
+- [x] managed(복사) / linked(참조) 두 방식
+- [x] 사용자 지정 자켓, 되돌리기
+- [x] 곡/앨범/아티스트/폴더/재생목록 탭, 검색, 정렬
+- [x] 사라진 파일 정리
 
-## B. 데이터
-- [ ] Drift 스키마: tracks, playlists, playlist_tracks, presets, track_settings, device_profiles
-- [ ] DAO / Repository
-- [ ] 앱 저장소 경로 관리 (음원, 아트워크)
+### 오디오
+- [x] SoLoud 엔진, 전역 필터 체인 (피치 → EQ → 리버브 → 에코 → 리미터)
+- [x] 배속 연동/고정 두 모드, 센트 단위 피치
+- [x] 값 변경 보간과 60ms 묶음 처리 (클릭 잡음 방지)
+- [x] **플랫폼 디코더** (Android MediaCodec) — m4a/AAC 재생
+- [x] 큐, 반복, 셔플, A-B 구간 반복
+- [x] 곡별 배속 기억
+- [x] 백그라운드 재생, 잠금화면 컨트롤 (audio_service)
+- [x] 실패한 곡에서 무한히 다음 곡으로 넘어가지 않게 제한
 
-## C. 라이브러리
-- [ ] 권한 (READ_MEDIA_AUDIO, API 33+)
-- [ ] Kotlin MethodChannel: MediaStore 음원 목록 조회
-- [ ] 파일 가져오기 (file_picker) → 앱 저장소 복사
-- [ ] 태그/아트워크 스냅샷 (audiotags) → DB + artwork/{id}.jpg
-- [ ] managed(복사) / linked(참조) 두 방식 지원
-- [ ] 자켓 우선순위: 사용자 지정 > 태그 추출 > 폴더 cover.jpg > 자동 생성
-- [ ] 사용자 자켓 지정
+### 음향
+- [x] 3층 EQ 합산 (기기 / 환경 / 취향)
+- [x] 출력 기기 자동 감지와 보정 자동 전환
+- [x] 기본 프리셋 19개
+- [x] 리버브, 에코, 공간 넓이, 등청감 보정
+- [x] 프리셋 저장(배속 포함), JSON 내보내기·가져오기
+- [x] 선택 조합을 앱 종료 후에도 유지
+- [x] 전체 초기화
 
-## D. 오디오 엔진
-- [ ] SoLoud 초기화 / 해제
-- [ ] 재생, 일시정지, 탐색, 이전, 다음, 큐
-- [ ] 반복(없음/전체/한곡), 셔플
-- [ ] 배속: 연동(varispeed) / 고정(time-stretch) 두 모드
-- [ ] 피치: 센트 단위 미세 조정
-- [ ] 값 변경 시 보간(클릭 잡음 방지)
-- [ ] 진행률/남은시간 배속 반영
-- [ ] audio_service 백그라운드 + 알림 컨트롤
-- [ ] A-B 구간 반복
+### 화면
+- [x] Figma Make 시안을 옮긴 디자인 토큰과 유리 위젯
+- [x] 라이브러리, 재생, 배속 시트, 이펙트 시트, 프리셋, 가져오기
+- [x] 배속 다이얼 (각도 추적, 1.00 디텐트, 한 칸 버튼)
+- [x] 3층 EQ 그래프
+- [x] 제스처 (두 손가락 배속·피치, 스와이프 곡 이동)
+- [x] 자켓 밝기에 따른 덮개·유리 농도 조정
+- [x] 상하 시스템 영역 여백
 
-## E. 이펙트
-- [ ] 3층 EQ 모델 (device / environment / taste) 합산
-- [ ] SoLoud EqualizerSingle 연결
-- [ ] 리버브, 에코, 크로스피드
-- [ ] Kotlin MethodChannel: 출력 기기 감지 → device 레이어 자동 전환
-- [ ] 기본 프리셋 데이터 (기기 7 / 환경 6 / 취향 6)
+### 그 외
+- [x] 앱 아이콘 (글래스모피즘 + EQ 막대)
+- [x] 이름 Pomento / 뽀멘토, 패키지 com.pomento.app
+- [x] iOS Info.plist (파일 공유, 백그라운드 오디오, 애플뮤직 접근 차단)
+- [x] release APK 빌드와 설치
+- [x] 비공개 저장소 https://github.com/IMMINJU/pomento
 
-## F. 프리셋
-- [ ] 프리셋 CRUD
-- [ ] 곡별 배속/피치 기억
-- [ ] JSON export / import (동기화 자리, Firestore는 나중)
+## 다음
 
-## G. 임시 UI
-- [ ] 라이브러리 화면
-- [ ] 재생 화면
-- [ ] 배속/피치 다이얼 (기능만)
-- [ ] 이펙트 시트
-- [ ] 프리셋 목록
-- [ ] 제스처
+### 확인이 필요한 것
+- [ ] 아주 긴 음원(7시간대)에서 `maxBufferSizeBytes` 상한이 누적으로 걸리는지
+- [ ] 배속 다이얼 조작감이 실제로 매끄러운지
+- [ ] 블루투스 이어폰 연결 시 기기 보정이 제대로 바뀌는지
 
-## H. 빌드
-- [ ] release APK
-- [ ] 무선 디버깅으로 폰에 설치
+### iOS
+- [ ] Apple Developer Program 개인 가입 (승인에 1~2일)
+- [ ] Codemagic 연결해서 맥 없이 빌드
+- [ ] iOS용 PcmDecoder (AVAudioFile 기반)
+- [ ] TestFlight 내부 테스터 등록
 
-## 나중에
-- [ ] 디자인 적용 (Figma Make 결과 나오면)
-- [ ] Firestore 프리셋 동기화
-- [ ] iOS 빌드 검증 (맥 필요)
+### 기능
+- [ ] Firestore 프리셋 동기화 (지금은 JSON 복사·붙여넣기)
+- [ ] EQ 그래프에서 직접 밴드 조절
+- [ ] 가사 표시
+- [ ] 스포티파이 플레이리스트 CSV 가져오기
