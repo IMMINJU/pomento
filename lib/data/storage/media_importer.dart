@@ -116,6 +116,55 @@ class MediaImporter {
     }
   }
 
+  /// 앱 폴더에 들어온 음원을 훑어서 라이브러리에 넣는다.
+  ///
+  /// iOS에서는 파일 앱으로 앱 폴더에 직접 옮겨 넣는 것이 유일한 반입 경로다.
+  /// 넣은 파일이 보이려면 앱이 폴더를 다시 훑어야 한다. 안드로이드에서도
+  /// 앱이 복사해둔 파일을 다시 찾을 때 쓴다.
+  Future<ImportResult> scanAppFolder() async {
+    final root = AppPaths.instance.root;
+    if (!root.existsSync()) {
+      return const ImportResult(added: 0, skipped: 0);
+    }
+
+    final existing = (await db.select(db.tracks).get())
+        .map((t) => t.filePath)
+        .toSet();
+    final artworkDir = AppPaths.instance.artwork.path;
+    final userArtworkDir = AppPaths.instance.userArtwork.path;
+
+    var added = 0;
+    var skipped = 0;
+    var errors = 0;
+
+    try {
+      await for (final entity
+          in root.list(recursive: true, followLinks: false)) {
+        if (entity is! File) continue;
+        final path = entity.path;
+        if (!isSupported(path)) continue;
+        // 우리가 만든 자켓 폴더는 건너뛴다.
+        if (path.startsWith(artworkDir) || path.startsWith(userArtworkDir)) {
+          continue;
+        }
+        if (existing.contains(path)) {
+          skipped++;
+          continue;
+        }
+        // 이미 앱 안에 있는 파일이라 복사하지 않는다.
+        if (await importFile(path, copyIntoApp: false)) {
+          added++;
+        } else {
+          errors++;
+        }
+      }
+    } catch (e) {
+      debugPrint('앱 폴더 훑기 실패: $e');
+    }
+
+    return ImportResult(added: added, skipped: skipped, errors: errors);
+  }
+
   /// 기기 미디어 저장소에서 찾은 항목을 넣는다.
   Future<bool> importNativeItem(NativeAudioItem item) async {
     final path = item.path;

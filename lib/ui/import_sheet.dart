@@ -128,19 +128,29 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       children: [
-        if (Platform.isAndroid)
+        if (Platform.isAndroid) ...[
           _option(
             icon: Icons.phone_android,
             title: '기기에 있는 음악 찾기',
             body: '폰에 저장된 음원을 훑어서 고를 수 있게 보여줍니다',
             onTap: _scanDevice,
           ),
-        const SizedBox(height: 12),
+          const SizedBox(height: 12),
+        ],
         _option(
           icon: Icons.folder_open,
           title: '파일에서 고르기',
           body: 'mp3, flac, wav, ogg, m4a 파일을 직접 선택합니다',
           onTap: _pickFiles,
+        ),
+        const SizedBox(height: 12),
+        _option(
+          icon: Icons.refresh,
+          title: '앱 폴더 다시 훑기',
+          body: Platform.isIOS
+              ? '파일 앱으로 Pomento 폴더에 넣은 음원을 찾습니다'
+              : '앱이 가지고 있는 음원을 다시 확인합니다',
+          onTap: _scanAppFolder,
         ),
         const SizedBox(height: 24),
         if (Platform.isIOS) ...[
@@ -287,6 +297,31 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
                 const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _scanAppFolder() async {
+    setState(() {
+      _busy = true;
+      _status = '앱 폴더를 훑는 중';
+    });
+
+    final result = await ref.read(mediaImporterProvider).scanAppFolder();
+
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _status = '';
+    });
+    Navigator.pop(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          result.added == 0 && result.skipped == 0
+              ? '앱 폴더에 새 음원이 없습니다'
+              : result.summary,
+        ),
       ),
     );
   }
