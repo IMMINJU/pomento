@@ -97,6 +97,26 @@
 			</array>
 		</dict>
 	</array>
+	<!-- Spotify 인증이 돌아올 주소. 대시보드의 Redirect URI와 같아야 한다. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.pomento.app.auth</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>pomento</string>
+			</array>
+		</dict>
+	</array>
+	<!-- App Remote가 Spotify 앱이 깔려 있는지 물어보려면 이 목록에 있어야
+	     한다. iOS는 등록하지 않은 스킴에 canOpenURL을 허용하지 않는다. -->
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>spotify</string>
+	</array>
 	<!-- NSAppleMusicUsageDescription을 일부러 넣지 않는다.
 	     이 키가 없으면 MPMediaLibrary 접근이 시스템에서 막힌다. 애플뮤직
 	     보관함 동기화가 자켓과 태그를 카탈로그 것으로 바꾸는 문제를

@@ -1,0 +1,7 @@
+// Spotify App Remote AAR을 서브프로젝트로 끼워 넣는다.
+//
+// spotify_sdk 플러그인이 `implementation project(':spotify-app-remote')`로
+// 이 이름을 참조한다. Spotify가 이 라이브러리를 Maven에 올리지 않아서
+// GitHub 릴리스의 aar 파일을 직접 넣는 방법밖에 없다.
+configurations.maybeCreate("default")
+artifacts.add("default", file('spotify-app-remote-release-0.8.0.aar'))

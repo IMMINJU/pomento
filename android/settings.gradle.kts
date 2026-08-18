@@ -24,3 +24,6 @@ plugins {
 }
 
 include(":app")
+
+// Spotify App Remote. android/spotify-app-remote/ 에 aar과 build.gradle이 있다.
+include(":spotify-app-remote")
