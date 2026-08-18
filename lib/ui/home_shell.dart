@@ -26,8 +26,8 @@ final playerTabDepthProvider = StateProvider<int>((ref) => 1);
 /// 탭바 높이(시스템 여백 제외).
 const double kTabBarHeight = 58;
 
-/// 미니 플레이어 높이(바깥 여백 포함).
-const double kMiniPlayerHeight = 72;
+/// 미니 플레이어 높이. 화면 폭을 다 쓰므로 바깥 여백이 없다.
+const double kMiniPlayerHeight = 68;
 
 /// 탭바와 미니 플레이어가 가리는 만큼 목록 아래에 둘 여백.
 ///

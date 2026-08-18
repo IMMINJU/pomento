@@ -1,4 +1,5 @@
 // Flutter의 RepeatMode(애니메이션용)와 이름이 겹쳐서 가린다.
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart' hide RepeatMode;
@@ -17,8 +18,13 @@ import 'widgets/artwork.dart';
 import 'widgets/artwork_tone.dart';
 import 'widgets/common.dart';
 import 'widgets/glass.dart';
-import 'widgets/practice_blocks.dart';
-import 'widgets/sound_quick_panel.dart';
+
+/// 재생 컨트롤 패널을 펼쳐 두었는지.
+///
+/// Capriccio는 상단 바의 둥근 버튼으로 이 패널을 여닫는다. 열어두면 앨범아트
+/// 아래에 구간 반복, 점프 탐색, 속도, 피치가 한 줄씩 붙는다. 화면을 옮기지
+/// 않고 그 자리에서 값을 바꾸는 것이 이 앱의 성격이다.
+final controlPanelOpenProvider = StateProvider<bool>((ref) => true);
 
 class PlayerScreen extends ConsumerStatefulWidget {
   const PlayerScreen({super.key});
@@ -32,14 +38,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   double? _dragSpeed;
   double? _dragPitch;
   bool _twoFinger = false;
-
-  /// 지금 펼쳐진 패널. null이면 접혀 있다.
-  ///
-  /// 값을 바꾸러 다른 화면으로 옮겨가지 않는다. 앨범아트가 줄어들 뿐 곡과
-  /// 진행바와 전송 버튼은 그대로 남는다.
-  _Panel? _panel;
-
-  void _toggle(_Panel p) => setState(() => _panel = _panel == p ? null : p);
 
   @override
   Widget build(BuildContext context) {
@@ -56,6 +54,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     final controller = ref.read(playerControllerProvider.notifier);
     final track = state.current;
     final bottomInset = shellBottomInset(context, ref);
+    final panelOpen = ref.watch(controlPanelOpenProvider);
 
     if (track == null) {
       return Scaffold(
@@ -155,7 +154,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                     child: LayoutBuilder(
                       builder: (context, box) {
                         final size =
-                            math.min(box.maxWidth - 56, box.maxHeight - 8);
+                            math.min(box.maxWidth - 100, box.maxHeight - 8);
                         // 패널을 펼치면 자리가 좁아진다. 억지로 밀어 넣지
                         // 않고 접는다.
                         if (size < 96) return const SizedBox.shrink();
@@ -169,24 +168,18 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                       },
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 14),
+                  if (panelOpen)
+                    _ControlPanel(
+                      state: state,
+                      controller: controller,
+                      tone: tone,
+                    ),
+                  if (panelOpen) const SizedBox(height: 16),
                   _TitleRow(state: state, controller: controller),
                   const SizedBox(height: 12),
                   _Progress(state: state, controller: controller),
-                  const SizedBox(height: 10),
-                  _PanelTabs(
-                    state: state,
-                    tone: tone,
-                    open: _panel,
-                    onToggle: _toggle,
-                  ),
-                  _InlinePanel(
-                    panel: _panel,
-                    state: state,
-                    controller: controller,
-                    tone: tone,
-                  ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                   _Transport(state: state, controller: controller, tone: tone),
                   SizedBox(height: bottomInset + 8),
                 ],
@@ -199,10 +192,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   }
 }
 
-/// 큐 위치와 재생 목록.
+/// 큐 위치, 재생 목록, 컨트롤 패널 토글, 더보기.
 ///
-/// Capriccio처럼 왼쪽에 `3 / 27`을 두고 그 아래에 진행 밑줄을 그린다. 곡의
-/// 진행이 아니라 큐 안에서의 위치다.
+/// Capriccio는 왼쪽에 `1 / 1`을 알약 안에 넣고 그 아래에 진행 밑줄을 그린다.
+/// 곡의 진행이 아니라 큐 안에서의 위치다. 그 옆 둥근 버튼 둘이 재생 목록과
+/// 재생 컨트롤 패널이고, 오른쪽 끝이 더보기다.
 class _TopBar extends ConsumerWidget {
   const _TopBar({required this.state, required this.tone});
 
@@ -213,52 +207,68 @@ class _TopBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final total = state.queue.length;
     final at = total == 0 ? 0 : state.index + 1;
+    final panelOpen = ref.watch(controlPanelOpenProvider);
 
     return SizedBox(
-      height: 52,
+      height: 60,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Row(
           children: [
-            Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '$at / $total',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: AppColors.t2,
-                    fontFeatures: tabularFigures,
+            Container(
+              width: 92,
+              height: 40,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.35),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Text(
+                    '$at / $total',
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.t1,
+                      fontFeatures: tabularFigures,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                SizedBox(
-                  width: 56,
-                  height: 2,
-                  child: FractionallySizedBox(
-                    alignment: Alignment.centerLeft,
-                    widthFactor: total == 0 ? 0 : at / total,
-                    child: Container(color: AppColors.accent),
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: SizedBox(
+                      height: 3,
+                      child: FractionallySizedBox(
+                        alignment: Alignment.centerLeft,
+                        widthFactor: total == 0 ? 0 : at / total,
+                        child: Container(color: AppColors.accent),
+                      ),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 12),
             _RoundIcon(
-              icon: Icons.queue_music,
+              icon: Icons.sort,
               tone: tone,
               onTap: () => showQueueSheet(context),
             ),
             const SizedBox(width: 8),
             _RoundIcon(
-              icon: Icons.speed,
+              icon: Icons.compare_arrows,
               tone: tone,
-              onTap: () => openPracticeScreen(context),
+              filled: panelOpen,
+              onTap: () => ref
+                  .read(controlPanelOpenProvider.notifier)
+                  .state = !panelOpen,
             ),
             const Spacer(),
             IconButton(
-              icon: const Icon(Icons.more_vert, size: 22, color: AppColors.t2),
+              icon: const Icon(Icons.more_vert, size: 24, color: AppColors.t2),
               onPressed: () => showMoreSheet(context),
             ),
           ],
@@ -304,6 +314,16 @@ void showMoreSheet(BuildContext context) {
                 onTap: () {
                   Navigator.pop(sheet);
                   showSleepTimerSheet(context);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.tune, color: AppColors.t2),
+                title: const Text('연습 자세히', style: AppText.body),
+                subtitle: const Text('슬라이더와 숫자칸으로 정확히 맞춥니다',
+                    style: AppText.small),
+                onTap: () {
+                  Navigator.pop(sheet);
+                  openPracticeScreen(context);
                 },
               ),
               SwitchListTile(
@@ -406,6 +426,7 @@ void showSleepTimerSheet(BuildContext context) {
   );
 }
 
+/// 제목과 아티스트. 아티스트 줄은 링크색으로 쓰고 앨범을 함께 적는다.
 class _TitleRow extends StatelessWidget {
   const _TitleRow({required this.state, required this.controller});
 
@@ -429,16 +450,26 @@ class _TitleRow extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: AppText.display,
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 4),
                 Text(
-                  track.artist,
+                  // 태그가 부실한 파일은 앨범에 아티스트가 그대로 들어 있다.
+                  // 같은 글자를 두 번 쓰지 않는다.
+                  (track.album.isEmpty || track.album == track.artist)
+                      ? track.artist
+                      : '${track.artist} - ${track.album}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: AppText.caption,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    height: 20 / 15,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.accent,
+                  ),
                 ),
               ],
             ),
           ),
+          const SizedBox(width: 8),
           IconButton(
             visualDensity: VisualDensity.compact,
             icon: Icon(
@@ -446,9 +477,10 @@ class _TitleRow extends StatelessWidget {
                 RepeatMode.one => Icons.repeat_one,
                 _ => Icons.repeat,
               },
-              size: 20,
-              color:
-                  state.repeat == RepeatMode.off ? AppColors.t3 : AppColors.accent,
+              size: 24,
+              color: state.repeat == RepeatMode.off
+                  ? AppColors.t3
+                  : AppColors.accent,
             ),
             onPressed: controller.cycleRepeat,
           ),
@@ -456,7 +488,7 @@ class _TitleRow extends StatelessWidget {
             visualDensity: VisualDensity.compact,
             icon: Icon(
               Icons.shuffle,
-              size: 20,
+              size: 24,
               color: state.shuffle ? AppColors.accent : AppColors.t3,
             ),
             onPressed: controller.toggleShuffle,
@@ -487,13 +519,29 @@ class _Progress extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 4),
           Row(
             children: [
-              Text(formatDuration(state.position), style: AppText.mono),
+              // 지난 시간은 링크색, 전체 길이는 흰색.
+              Text(
+                formatDuration(state.position),
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.accent,
+                  fontFeatures: tabularFigures,
+                ),
+              ),
               const Spacer(),
-              // Capriccio처럼 오른쪽에 곡 전체 길이를 둔다.
-              Text(formatDuration(state.totalWallClock), style: AppText.mono),
+              Text(
+                formatDuration(state.totalWallClock),
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.t1,
+                  fontFeatures: tabularFigures,
+                ),
+              ),
             ],
           ),
         ],
@@ -502,294 +550,378 @@ class _Progress extends StatelessWidget {
   }
 }
 
-/// 진행바 아래에서 펼쳐지는 패널의 종류.
-enum _Panel { speed, pitch, loop, sound }
-
-/// 값을 바꾸는 자리로 들어가는 칩 네 개.
+/// 앨범아트 아래에 붙는 재생 컨트롤 패널.
 ///
-/// 누르면 화면을 옮기지 않고 바로 아래가 펼쳐진다. 칩 자체가 지금 값을
-/// 보여주므로 접힌 상태에서도 무엇이 걸려 있는지 읽을 수 있다.
-class _PanelTabs extends StatelessWidget {
-  const _PanelTabs({
-    required this.state,
-    required this.tone,
-    required this.open,
-    required this.onToggle,
-  });
-
-  final PlayerState state;
-  final ArtworkTone tone;
-  final _Panel? open;
-  final ValueChanged<_Panel> onToggle;
-
-  @override
-  Widget build(BuildContext context) {
-    final tempo = state.tempo;
-    final looping = state.loopA != null || state.loopB != null;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 4,
-            child: _TabChip(
-              tone: tone,
-              open: open == _Panel.speed,
-              marked: tempo.speed != 1.0,
-              onTap: () => onToggle(_Panel.speed),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    '${tempo.speed.toStringAsFixed(2)}×',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: tempo.speed == 1.0
-                          ? AppColors.t1
-                          : AppColors.accent,
-                      fontFeatures: tabularFigures,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Icon(
-                    tempo.mode == TempoMode.linked
-                        ? Icons.link
-                        : Icons.lock_outline,
-                    size: 12,
-                    color: AppColors.t3,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(width: 7),
-          Expanded(
-            flex: 3,
-            child: _TabChip(
-              tone: tone,
-              open: open == _Panel.pitch,
-              marked: tempo.pitchCents != 0,
-              onTap: () => onToggle(_Panel.pitch),
-              child: Text(
-                '${tempo.pitchCents > 0 ? '+' : ''}'
-                '${tempo.pitchCents.toStringAsFixed(0)}¢',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: tempo.pitchCents == 0
-                      ? AppColors.t1
-                      : AppColors.accent,
-                  fontFeatures: tabularFigures,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 7),
-          Expanded(
-            flex: 3,
-            child: _TabChip(
-              tone: tone,
-              open: open == _Panel.loop,
-              marked: looping,
-              onTap: () => onToggle(_Panel.loop),
-              child: Text(
-                'A–B',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: looping ? AppColors.accent : AppColors.t1,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 7),
-          Expanded(
-            flex: 3,
-            child: _TabChip(
-              tone: tone,
-              open: open == _Panel.sound,
-              marked: false,
-              onTap: () => onToggle(_Panel.sound),
-              child: const Icon(Icons.tune, size: 17, color: AppColors.t1),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TabChip extends StatelessWidget {
-  const _TabChip({
-    required this.child,
-    required this.tone,
-    required this.open,
-    required this.marked,
-    required this.onTap,
-  });
-
-  final Widget child;
-  final ArtworkTone tone;
-
-  /// 이 칩의 패널이 펼쳐져 있는지.
-  final bool open;
-
-  /// 값이 기본에서 벗어나 있는지.
-  final bool marked;
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final highlight = open || marked;
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 140),
-        height: 38,
-        alignment: Alignment.center,
-        padding: const EdgeInsets.symmetric(horizontal: 6),
-        decoration: BoxDecoration(
-          color: open
-              ? AppColors.accent.withValues(alpha: 0.22)
-              : (marked
-                  ? AppColors.accent.withValues(alpha: 0.12)
-                  : Colors.white.withValues(alpha: tone.glassOpacity)),
-          borderRadius: BorderRadius.circular(AppRadius.pill),
-          border: Border.all(
-            color: highlight
-                ? AppColors.accent.withValues(alpha: open ? 0.6 : 0.4)
-                : Colors.white.withValues(alpha: tone.borderBoost),
-          ),
-        ),
-        child: child,
-      ),
-    );
-  }
-}
-
-/// 칩 바로 아래에서 펼쳐지는 실제 컨트롤.
-class _InlinePanel extends ConsumerWidget {
-  const _InlinePanel({
-    required this.panel,
+/// 위 줄은 점프 탐색과 구간 반복, 아래 줄은 속도와 피치다. 값을 바꾸러
+/// 다른 화면으로 가지 않는다. 상단 바의 둥근 버튼으로 여닫는다.
+class _ControlPanel extends ConsumerWidget {
+  const _ControlPanel({
     required this.state,
     required this.controller,
     required this.tone,
   });
 
-  final _Panel? panel;
   final PlayerState state;
   final PlayerController controller;
   final ArtworkTone tone;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return AnimatedSize(
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOutCubic,
-      alignment: Alignment.topCenter,
-      child: panel == null
-          ? const SizedBox(width: double.infinity, height: 0)
-          : Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
-                decoration: BoxDecoration(
-                  color: Colors.white
-                      .withValues(alpha: tone.glassOpacity + 0.02),
-                  borderRadius: BorderRadius.circular(AppRadius.card),
-                  border: Border.all(
-                    color: AppColors.accent.withValues(alpha: 0.28),
+    final settings = ref.watch(settingsProvider);
+    final tempo = state.tempo;
+    final looping = state.loopA != null || state.loopB != null;
+    final short = settings.seekShortSeconds;
+    final long = settings.seekLongSeconds;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: tone.glassOpacity),
+        borderRadius: BorderRadius.circular(AppRadius.panel),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: tone.borderBoost),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _JumpButton(
+                seconds: long,
+                back: true,
+                onTap: () => controller.seekBy(Duration(seconds: -long)),
+              ),
+              _JumpButton(
+                seconds: short,
+                back: true,
+                onTap: () => controller.seekBy(Duration(seconds: -short)),
+              ),
+              _AbButton(
+                state: state,
+                controller: controller,
+                active: looping,
+              ),
+              _JumpButton(
+                seconds: short,
+                back: false,
+                onTap: () => controller.seekBy(Duration(seconds: short)),
+              ),
+              _JumpButton(
+                seconds: long,
+                back: false,
+                onTap: () => controller.seekBy(Duration(seconds: long)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Divider(
+            height: 1,
+            color: Colors.white.withValues(alpha: tone.borderBoost),
+          ),
+          const SizedBox(height: 10),
+          IntrinsicHeight(
+            child: Row(
+              children: [
+                Expanded(
+                  child: _ValueStepper(
+                    icon: tempo.mode == TempoMode.linked
+                        ? Icons.speed
+                        : Icons.lock_outline,
+                    label: '${tempo.speed.toStringAsFixed(2)}x',
+                    changed: tempo.speed != 1.0,
+                    onMinus: () => _bumpSpeed(-1, settings.speedStep),
+                    onPlus: () => _bumpSpeed(1, settings.speedStep),
+                    // 아이콘을 누르면 연동과 고정이 바뀐다.
+                    onIconTap: () {
+                      HapticFeedback.selectionClick();
+                      controller.setTempoMode(
+                        tempo.mode == TempoMode.linked
+                            ? TempoMode.independent
+                            : TempoMode.linked,
+                      );
+                    },
                   ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxHeight: 300),
-                      child: SingleChildScrollView(
-                        child: _body(context, ref),
-                      ),
-                    ),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: () => panel == _Panel.sound
-                            ? openEffectsScreen(context)
-                            : openPracticeScreen(context),
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 6),
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        child: const Text(
-                          '자세히',
-                          style: TextStyle(
-                              fontSize: 13, color: AppColors.accent),
-                        ),
-                      ),
-                    ),
-                  ],
+                VerticalDivider(
+                  width: 1,
+                  color: Colors.white.withValues(alpha: tone.borderBoost),
                 ),
-              ),
+                Expanded(
+                  child: _ValueStepper(
+                    icon: Icons.piano,
+                    label: '${tempo.pitchCents >= 0 ? '+' : ''}'
+                        '${(tempo.pitchCents / 100).toStringAsFixed(2)}',
+                    changed: tempo.pitchCents != 0,
+                    enabled: tempo.mode == TempoMode.independent,
+                    onMinus: () =>
+                        _bumpPitch(-1, settings.pitchStepCents.toDouble()),
+                    onPlus: () =>
+                        _bumpPitch(1, settings.pitchStepCents.toDouble()),
+                    onIconTap: () => openPracticeScreen(context),
+                  ),
+                ),
+              ],
             ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _body(BuildContext context, WidgetRef ref) {
-    final settings = ref.watch(settingsProvider);
-    final tempo = state.tempo;
+  void _bumpSpeed(int dir, double step) {
+    var next = state.tempo.speed + step * dir;
+    next = (next * 1000).round() / 1000;
+    if ((next - 1.0).abs() < step * 0.4) next = 1.0;
+    HapticFeedback.selectionClick();
+    controller.setSpeed(next.clamp(0.5, 2.0), commit: true);
+  }
 
-    switch (panel!) {
-      case _Panel.speed:
-        return Column(
-          children: [
-            Center(
-              child: GlassSegment(
-                labels: [
-                  TempoMode.linked.label,
-                  TempoMode.independent.label,
-                ],
-                selectedIndex: tempo.mode == TempoMode.linked ? 0 : 1,
-                onSelect: (i) => controller.setTempoMode(
-                  i == 0 ? TempoMode.linked : TempoMode.independent,
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            SpeedBlock(
-              tempo: tempo,
-              settings: settings,
-              controller: controller,
-              onRangeChange: (r) =>
-                  ref.read(settingsProvider.notifier).setSpeedRange(r),
-            ),
-          ],
-        );
-      case _Panel.pitch:
-        return PitchBlock(
-          tempo: tempo,
-          settings: settings,
-          controller: controller,
-        );
-      case _Panel.loop:
-        return Column(
-          children: [
-            LoopBlock(state: state, controller: controller),
-            const SizedBox(height: 12),
-            JumpRow(settings: settings, controller: controller),
-          ],
-        );
-      case _Panel.sound:
-        return const SoundQuickPanel();
-    }
+  void _bumpPitch(int dir, double stepCents) {
+    final next = (state.tempo.pitchCents + stepCents * dir).clamp(-200.0, 200.0);
+    HapticFeedback.selectionClick();
+    controller.setPitchCents(next.toDouble(), commit: true);
   }
 }
 
-/// 전송 행.
-///
-/// 값을 바꾸는 버튼은 위 칩으로 올라갔다. 여기는 곡을 넘기고 멈추는 일만
-/// 한다. 패널을 펼쳐도 이 줄은 그대로 남는다.
+/// 점프 탐색 버튼. 둥근 테두리 안에 화살표, 옆에 초.
+class _JumpButton extends StatelessWidget {
+  const _JumpButton({
+    required this.seconds,
+    required this.back,
+    required this.onTap,
+  });
+
+  final int seconds;
+  final bool back;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final circle = Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
+      ),
+      child: Icon(
+        back
+            ? (seconds >= 10 ? Icons.keyboard_double_arrow_left
+                : Icons.keyboard_arrow_left)
+            : (seconds >= 10 ? Icons.keyboard_double_arrow_right
+                : Icons.keyboard_arrow_right),
+        size: 20,
+        color: AppColors.t1,
+      ),
+    );
+    final text = Text(
+      '$seconds"',
+      style: const TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w500,
+        color: AppColors.t1,
+        fontFeatures: tabularFigures,
+      ),
+    );
+
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        onTap();
+      },
+      behavior: HitTestBehavior.opaque,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: back
+            ? [circle, const SizedBox(width: 4), text]
+            : [text, const SizedBox(width: 4), circle],
+      ),
+    );
+  }
+}
+
+/// 구간 반복. 한 번 누르면 A, 다시 누르면 B, 길게 누르면 해제.
+class _AbButton extends StatelessWidget {
+  const _AbButton({
+    required this.state,
+    required this.controller,
+    required this.active,
+  });
+
+  final PlayerState state;
+  final PlayerController controller;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        if (state.loopA == null) {
+          controller.setLoopA();
+        } else if (state.loopB == null) {
+          controller.setLoopB();
+        } else {
+          controller.clearLoop();
+        }
+      },
+      onLongPress: () {
+        HapticFeedback.mediumImpact();
+        controller.clearLoop();
+      },
+      child: Container(
+        height: 44,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: active
+              ? AppColors.accent
+              : Colors.white.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(AppRadius.pill),
+          border: Border.all(
+            color: active
+                ? AppColors.accent
+                : Colors.white.withValues(alpha: 0.28),
+          ),
+        ),
+        child: Text(
+          switch ((state.loopA, state.loopB)) {
+            (null, _) => 'A - B',
+            (final a?, null) => 'A ${formatDuration(a)}',
+            (final a?, final b?) =>
+              '${formatDuration(a)} - ${formatDuration(b)}',
+          },
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: active ? AppColors.bgBase : AppColors.t1,
+            fontFeatures: tabularFigures,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// `⊖ 아이콘 값 ⊕` 한 벌. 속도와 피치가 같은 모양을 쓴다.
+class _ValueStepper extends StatelessWidget {
+  const _ValueStepper({
+    required this.icon,
+    required this.label,
+    required this.changed,
+    required this.onMinus,
+    required this.onPlus,
+    required this.onIconTap,
+    this.enabled = true,
+  });
+
+  final IconData icon;
+  final String label;
+
+  /// 기본값에서 벗어나 있으면 값을 accent로 쓴다.
+  final bool changed;
+
+  final VoidCallback onMinus;
+  final VoidCallback onPlus;
+  final VoidCallback onIconTap;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: enabled ? 1 : 0.4,
+      child: IgnorePointer(
+        ignoring: !enabled,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _CircleStep(icon: Icons.remove, onTap: onMinus),
+            GestureDetector(
+              onTap: onIconTap,
+              behavior: HitTestBehavior.opaque,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 17, color: AppColors.t2),
+                  const SizedBox(width: 6),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: changed ? AppColors.accent : AppColors.t1,
+                      fontFeatures: tabularFigures,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            _CircleStep(icon: Icons.add, onTap: onPlus),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CircleStep extends StatefulWidget {
+  const _CircleStep({required this.icon, required this.onTap});
+
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  State<_CircleStep> createState() => _CircleStepState();
+}
+
+class _CircleStepState extends State<_CircleStep> {
+  Timer? _repeat;
+
+  @override
+  void dispose() {
+    _repeat?.cancel();
+    super.dispose();
+  }
+
+  /// 길게 누르면 계속 움직인다. 0.05씩 열 번 눌러야 하는 일을 막는다.
+  void _down() {
+    widget.onTap();
+    _repeat?.cancel();
+    _repeat = Timer(const Duration(milliseconds: 420), () {
+      _repeat = Timer.periodic(
+        const Duration(milliseconds: 80),
+        (_) => widget.onTap(),
+      );
+    });
+  }
+
+  void _up() {
+    _repeat?.cancel();
+    _repeat = null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => _down(),
+      onTapUp: (_) => _up(),
+      onTapCancel: _up,
+      child: Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
+        ),
+        child: Icon(widget.icon, size: 19, color: AppColors.t1),
+      ),
+    );
+  }
+}
+
 class _Transport extends StatelessWidget {
   const _Transport({
     required this.state,
@@ -804,7 +936,7 @@ class _Transport extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -813,6 +945,7 @@ class _Transport extends StatelessWidget {
             builder: (context, ref, _) => _RoundIcon(
               icon: Icons.folder_outlined,
               tone: tone,
+              filled: true,
               onTap: () => ref.read(shellTabProvider.notifier).state = 1,
             ),
           ),
@@ -821,16 +954,26 @@ class _Transport extends StatelessWidget {
             icon: const Icon(Icons.skip_previous, color: AppColors.t1),
             onPressed: controller.previous,
           ),
-          GlassSurface(
-            radius: 34,
-            width: 68,
-            height: 68,
-            opacity: tone.glassOpacity + 0.04,
+          // 카드가 이미 유리라 여기서 또 블러를 겹치지 않는다. 한 화면에
+          // 유리는 두 겹까지다.
+          GestureDetector(
             onTap: controller.togglePlay,
-            child: Icon(
-              state.playing ? Icons.pause : Icons.play_arrow,
-              size: 30,
-              color: AppColors.t1,
+            child: Container(
+              width: 68,
+              height: 68,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white
+                    .withValues(alpha: tone.glassOpacity + 0.06),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: tone.borderBoost),
+                ),
+              ),
+              child: Icon(
+                state.playing ? Icons.pause : Icons.play_arrow,
+                size: 30,
+                color: AppColors.t1,
+              ),
             ),
           ),
           IconButton(
@@ -841,6 +984,7 @@ class _Transport extends StatelessWidget {
           _RoundIcon(
             icon: Icons.tune,
             tone: tone,
+            filled: true,
             onTap: () => openEffectsScreen(context),
           ),
         ],
@@ -854,11 +998,15 @@ class _RoundIcon extends StatelessWidget {
     required this.icon,
     required this.tone,
     required this.onTap,
+    this.filled = false,
   });
 
   final IconData icon;
   final ArtworkTone tone;
   final VoidCallback onTap;
+
+  /// 켜진 상태를 accent로 채워 보여준다.
+  final bool filled;
 
   @override
   Widget build(BuildContext context) {
@@ -869,12 +1017,20 @@ class _RoundIcon extends StatelessWidget {
         height: 44,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: Colors.white.withValues(alpha: tone.glassOpacity),
+          color: filled
+              ? AppColors.accent
+              : Colors.black.withValues(alpha: 0.35),
           border: Border.all(
-            color: Colors.white.withValues(alpha: tone.borderBoost),
+            color: filled
+                ? AppColors.accent
+                : Colors.white.withValues(alpha: tone.borderBoost),
           ),
         ),
-        child: Icon(icon, size: 20, color: AppColors.t1),
+        child: Icon(
+          icon,
+          size: 20,
+          color: filled ? AppColors.bgBase : AppColors.t1,
+        ),
       ),
     );
   }

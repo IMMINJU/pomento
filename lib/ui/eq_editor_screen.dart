@@ -38,13 +38,18 @@ class EqEditorScreen extends ConsumerStatefulWidget {
 class _EqEditorScreenState extends ConsumerState<EqEditorScreen> {
   int _selected = 0;
 
-  /// 점이 하나도 없는 프리셋에서 시작할 때 깔아주는 기본 다섯 점.
+  /// 점이 하나도 없는 프리셋에서 시작할 때 깔아주는 여덟 밴드.
+  ///
+  /// Capriccio의 Parametric EQ가 8밴드라 개수와 중심 주파수를 맞췄다.
   static const _seed = [
-    EqPoint(60, 0),
-    EqPoint(250, 0),
-    EqPoint(1000, 0),
-    EqPoint(4000, 0),
-    EqPoint(12000, 0),
+    EqPoint(32, 0, bandwidthOct: 1),
+    EqPoint(64, 0, bandwidthOct: 1),
+    EqPoint(128, 0, bandwidthOct: 1),
+    EqPoint(256, 0, bandwidthOct: 1),
+    EqPoint(512, 0, bandwidthOct: 1),
+    EqPoint(2000, 0, bandwidthOct: 1),
+    EqPoint(6000, 0, bandwidthOct: 1),
+    EqPoint(14000, 0, bandwidthOct: 1),
   ];
 
   List<EqPoint> _sorted(EqCurve eq) {
@@ -157,7 +162,7 @@ class _EqEditorScreenState extends ConsumerState<EqEditorScreen> {
                 const SizedBox(height: 18),
 
                 StepperField(
-                  label: '중심 주파수',
+                  label: '중심 주파수 (Hz)',
                   value: point.freq,
                   min: 20,
                   max: 20000,
@@ -175,24 +180,25 @@ class _EqEditorScreenState extends ConsumerState<EqEditorScreen> {
                 const SizedBox(height: 20),
 
                 StepperField(
-                  label: '대역폭',
+                  // Capriccio가 1/12 옥타브 단위로 적는다. 12면 한 옥타브다.
+                  label: '대역폭 (1/12)',
                   subLabel: point.isBell
                       ? '중심에서 ${(point.bandwidthOct / 2).toStringAsFixed(2)}'
                           '옥타브 떨어진 자리에서 절반이 됩니다'
                       : '0이면 옆 점과 이어지는 곡선이 됩니다',
-                  value: point.bandwidthOct,
+                  value: point.bandwidthOct * 12,
                   min: 0,
-                  max: 4,
-                  step: 0.1,
+                  max: 48,
+                  step: 1,
                   decimals: 1,
-                  suffix: 'oct',
-                  onChanged: (v) => _setBandwidth(points, index, v),
-                  onCommit: (v) => _setBandwidth(points, index, v),
+                  format: (v) => v.toStringAsFixed(1),
+                  onChanged: (v) => _setBandwidth(points, index, v / 12),
+                  onCommit: (v) => _setBandwidth(points, index, v / 12),
                 ),
                 const SizedBox(height: 20),
 
                 StepperField(
-                  label: '이득',
+                  label: '이득 (dB)',
                   subLabel: '세 층을 더한 값이 리미터로 들어갑니다',
                   value: point.gainDb,
                   min: -12,

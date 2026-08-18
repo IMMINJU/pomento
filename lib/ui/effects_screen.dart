@@ -10,10 +10,8 @@ import 'home_shell.dart';
 import 'presets_screen.dart';
 import 'theme.dart';
 import 'widgets/artwork.dart';
-import 'widgets/common.dart';
-import 'widgets/eq_graph.dart';
-import 'widgets/glass.dart';
 import 'widgets/screen_header.dart';
+import 'widgets/settings_list.dart';
 
 /// 재생 화면 위에 쌓는다.
 ///
@@ -41,6 +39,10 @@ class EffectsScreen extends ConsumerStatefulWidget {
 class _EffectsScreenState extends ConsumerState<EffectsScreen> {
   int _tab = 0;
 
+  /// 프리셋 이름 걸러내기. 비어 있으면 검색칸을 접는다.
+  bool _searching = false;
+  String _query = '';
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(effectControllerProvider);
@@ -63,17 +65,32 @@ class _EffectsScreenState extends ConsumerState<EffectsScreen> {
             child: Column(
               children: [
                 ScreenHeader(
-                  title: '음향',
+                  title: '효과 · ${ref.watch(tastePresetCountProvider)}',
                   actions: [
-                    HeaderAction(
-                      icon: Icons.bookmark_add_outlined,
-                      label: '저장',
-                      onTap: () => _saveDialog(context),
-                    ),
-                    HeaderAction(
-                      icon: Icons.refresh,
-                      label: '초기화',
-                      onTap: () async {
+                    if (_tab == 0)
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        icon: Icon(
+                          _searching ? Icons.search_off : Icons.search,
+                          size: 22,
+                          color: _searching ? AppColors.accent : AppColors.t2,
+                        ),
+                        onPressed: () => setState(() {
+                          _searching = !_searching;
+                          if (!_searching) _query = '';
+                        }),
+                      ),
+                    // 저장과 초기화는 자주 쓰지 않는다. 머리를 비우려고
+                    // 더보기 안으로 넣었다.
+                    PopupMenuButton<int>(
+                      icon: const Icon(Icons.more_vert,
+                          size: 22, color: AppColors.t2),
+                      color: const Color(0xFF25252D),
+                      onSelected: (v) async {
+                        if (v == 0) {
+                          await _saveDialog(context);
+                          return;
+                        }
                         await controller.resetAll();
                         if (!context.mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -81,20 +98,25 @@ class _EffectsScreenState extends ConsumerState<EffectsScreen> {
                               content: Text('음향을 원래대로 되돌렸습니다')),
                         );
                       },
+                      itemBuilder: (_) => const [
+                        PopupMenuItem(
+                          value: 0,
+                          child: Text('취향 프리셋으로 저장',
+                              style: AppText.body),
+                        ),
+                        PopupMenuItem(
+                          value: 1,
+                          child: Text('원래대로 되돌리기', style: AppText.body),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: GlassSegment(
-                    // 세 칸이라 220으로는 글자가 잘린다. 화면 너비를 다 쓴다.
-                    width: double.infinity,
-                    labels: const ['음향 효과', '추가 효과', '공유'],
-                    selectedIndex: _tab,
-                    onSelect: (i) => setState(() => _tab = i),
-                  ),
+                _EffectTabs(
+                  index: _tab,
+                  onSelect: (i) => setState(() => _tab = i),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Text(
@@ -104,7 +126,7 @@ class _EffectsScreenState extends ConsumerState<EffectsScreen> {
                     style: AppText.small,
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
                 Expanded(
                   child: IndexedStack(
                     index: _tab,
@@ -113,6 +135,9 @@ class _EffectsScreenState extends ConsumerState<EffectsScreen> {
                         state: state,
                         controller: controller,
                         bottomInset: bottomInset,
+                        searching: _searching,
+                        query: _query,
+                        onQuery: (q) => setState(() => _query = q),
                       ),
                       _ExtrasTab(
                         state: state,
@@ -204,11 +229,17 @@ class _PresetListTab extends ConsumerStatefulWidget {
     required this.state,
     required this.controller,
     required this.bottomInset,
+    required this.searching,
+    required this.query,
+    required this.onQuery,
   });
 
   final EffectState state;
   final EffectController controller;
   final double bottomInset;
+  final bool searching;
+  final String query;
+  final ValueChanged<String> onQuery;
 
   @override
   ConsumerState<_PresetListTab> createState() => _PresetListTabState();
@@ -228,38 +259,45 @@ class _PresetListTabState extends ConsumerState<_PresetListTab> {
           .watchByLayer(PresetLayer.taste),
       builder: (context, snapshot) {
         final all = snapshot.data ?? const <Preset>[];
-        final list = all.where((p) => p.builtin != _custom).toList();
+        final q = widget.query.trim().toLowerCase();
+        final list = all
+            .where((p) => p.builtin != _custom)
+            .where((p) => q.isEmpty || p.name.toLowerCase().contains(q))
+            .toList();
 
         return ListView(
           padding: EdgeInsets.only(bottom: widget.bottomInset + 24),
           children: [
+            if (widget.searching)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                child: TextField(
+                  autofocus: true,
+                  style: AppText.body,
+                  cursorColor: AppColors.accent,
+                  onChanged: widget.onQuery,
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    hintText: '프리셋 이름',
+                    hintStyle: TextStyle(color: AppColors.t3, fontSize: 15),
+                    border: UnderlineInputBorder(),
+                  ),
+                ),
+              ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
               child: Row(
                 children: [
                   for (final entry in const [
-                    (false, '프리셋'),
-                    (true, '사용자 효과'),
+                    (false, '기본 효과'),
+                    (true, '커스텀 효과'),
                   ])
                     Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: GlassPill(
+                      padding: const EdgeInsets.only(right: 10),
+                      child: _FilterPill(
+                        label: entry.$2,
                         selected: _custom == entry.$1,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 7),
                         onTap: () => setState(() => _custom = entry.$1),
-                        child: Text(
-                          entry.$2,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: _custom == entry.$1
-                                ? FontWeight.w600
-                                : FontWeight.w400,
-                            color: _custom == entry.$1
-                                ? AppColors.t1
-                                : AppColors.t3,
-                          ),
-                        ),
                       ),
                     ),
                 ],
@@ -304,41 +342,24 @@ class _PresetRow extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 17),
         decoration: const BoxDecoration(
           border: Border(bottom: BorderSide(color: AppColors.divider)),
         ),
         child: Row(
           children: [
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    preset.name,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight:
-                          selected ? FontWeight.w600 : FontWeight.w400,
-                      color: selected ? AppColors.accent : AppColors.t1,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    preset.summary,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppText.small,
-                  ),
-                ],
+              child: Text(
+                preset.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                  color: selected ? AppColors.accent : AppColors.t1,
+                ),
               ),
             ),
-            const SizedBox(width: 12),
-            MiniEqCurve(curve: preset.eq, width: 56, height: 20),
-            if (selected) ...[
-              const SizedBox(width: 10),
-              const Icon(Icons.check, size: 18, color: AppColors.accent),
-            ],
           ],
         ),
       ),
@@ -348,8 +369,10 @@ class _PresetRow extends StatelessWidget {
 
 /// 층 밖의 처리와, 첫 화면에서 접어둔 두 층.
 ///
-/// 기기 보정은 연결된 기기를 보고 자동으로 붙으므로 평소에는 볼 일이 없다.
-/// 환경 보정도 하루에 몇 번 바꿀 것이라 첫 화면을 차지할 이유가 없다.
+/// Capriccio의 추가 효과 탭과 같은 목록 문법을 쓴다. 섹션 라벨에 밑줄,
+/// 행마다 굵은 제목과 회색 설명, 오른쪽에 지금 값. 다만 리버브처럼 0에서
+/// 100까지 이어지는 값은 목록으로 고르면 손해라 제목 아래에 슬라이더를
+/// 그대로 둔다.
 class _ExtrasTab extends ConsumerWidget {
   const _ExtrasTab({
     required this.state,
@@ -366,195 +389,248 @@ class _ExtrasTab extends ConsumerWidget {
     final presets = ref.watch(presetRepositoryProvider);
 
     return ListView(
-      padding: EdgeInsets.fromLTRB(20, 0, 20, bottomInset + 24),
+      padding: EdgeInsets.only(bottom: bottomInset + 24),
       children: [
-        const SectionLabel('기기 보정'),
-        const SizedBox(height: 8),
-        Container(
-          height: 68,
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          decoration: BoxDecoration(
-            color: AppColors.glass,
-            borderRadius: BorderRadius.circular(AppRadius.card),
-            border: Border.all(color: AppColors.glassBorder),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.headphones, size: 20, color: AppColors.t2),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      state.devicePreset?.name ?? state.device.label,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.t1,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      state.deviceAuto ? '연결된 기기를 보고 자동 적용' : '직접 고른 보정',
-                      style: AppText.small,
-                    ),
-                  ],
+        SettingsSection(
+          title: '기기 보정',
+          children: [
+            SettingsSwitchRow(
+              title: state.devicePreset?.name ?? state.device.label,
+              description: state.deviceAuto
+                  ? '연결된 기기를 보고 자동으로 붙습니다'
+                  : '직접 고른 보정입니다',
+              value: state.deviceEnabled,
+              onChanged: controller.setDeviceEnabled,
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 0, 4),
+              child: SizedBox(
+                height: 34,
+                child: FutureBuilder<List<Preset>>(
+                  future: presets.byLayer(PresetLayer.device),
+                  builder: (context, snap) {
+                    final list = snap.data ?? const <Preset>[];
+                    return ListView(
+                      scrollDirection: Axis.horizontal,
+                      children: [
+                        _Chip(
+                          label: '자동',
+                          selected: state.deviceAuto,
+                          onTap: controller.enableDeviceAuto,
+                        ),
+                        for (final p in list)
+                          _Chip(
+                            label: p.name,
+                            selected: !state.deviceAuto &&
+                                state.devicePreset?.id == p.id,
+                            onTap: () => controller.selectDevicePreset(p),
+                          ),
+                      ],
+                    );
+                  },
                 ),
               ),
-              GlassSwitch(
-                value: state.deviceEnabled,
-                onChanged: controller.setDeviceEnabled,
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-        FutureBuilder<List<Preset>>(
-          future: presets.byLayer(PresetLayer.device),
-          builder: (context, snap) {
-            final list = snap.data ?? const <Preset>[];
-            if (list.isEmpty) return const SizedBox.shrink();
-            return SizedBox(
-              height: 32,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                children: [
-                  GlassPill(
-                    selected: state.deviceAuto,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 6),
-                    onTap: controller.enableDeviceAuto,
-                    child: const Text('자동',
-                        style: TextStyle(fontSize: 12, color: AppColors.t2)),
-                  ),
-                  const SizedBox(width: 6),
-                  for (final p in list) ...[
-                    GlassPill(
-                      selected:
-                          !state.deviceAuto && state.devicePreset?.id == p.id,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
-                      onTap: () => controller.selectDevicePreset(p),
-                      child: Text(p.name,
-                          style: const TextStyle(
-                              fontSize: 12, color: AppColors.t2)),
-                    ),
-                    const SizedBox(width: 6),
-                  ],
-                ],
-              ),
-            );
-          },
+            ),
+          ],
         ),
 
-        const SizedBox(height: 24),
-        const SectionLabel('환경 보정'),
-        const SizedBox(height: 8),
-        StreamBuilder<List<Preset>>(
-          stream: presets.watchByLayer(PresetLayer.environment),
-          builder: (context, snap) {
-            final list = snap.data ?? const <Preset>[];
-            return Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final p in list)
-                  GlassPill(
-                    selected: state.environmentPreset?.id == p.id,
-                    onTap: () => controller.selectEnvironment(p),
-                    child: Text(
-                      p.name,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: state.environmentPreset?.id == p.id
-                            ? FontWeight.w600
-                            : FontWeight.w400,
-                        color: state.environmentPreset?.id == p.id
-                            ? AppColors.t1
-                            : AppColors.t2,
-                      ),
-                    ),
-                  ),
-              ],
-            );
-          },
-        ),
-        const SizedBox(height: 6),
-        const Text(
-          '지하철 보정이 저역을 깎는 것은 의도한 것입니다. 지하철 소음이 '
-          '저역이라 저역을 더 올리면 소음과 겹쳐 뭉갭니다.',
-          style: AppText.small,
-        ),
-
-        const SizedBox(height: 24),
-        _RowButton(
-          icon: Icons.graphic_eq,
-          label: '취향 층 EQ 고치기',
-          sub: '점과 종 모양 밴드로 곡선을 만듭니다',
-          onTap: state.tastePreset == null
-              ? null
-              : () => openEqEditorScreen(context),
-        ),
-
-        const SizedBox(height: 24),
-        const SectionLabel('공간과 보정'),
-        const SizedBox(height: 12),
-        LabeledSlider(
-          label: '리버브',
-          value: state.reverb.wet,
-          valueLabel: '${(state.reverb.wet * 100).round()}%',
-          onChanged: controller.setReverbWet,
-        ),
-        const SizedBox(height: 14),
-        LabeledSlider(
-          label: '공간 크기',
-          value: state.reverb.roomSize,
-          valueLabel: '${(state.reverb.roomSize * 100).round()}%',
-          onChanged: controller.setReverbRoomSize,
-        ),
-        const SizedBox(height: 14),
-        LabeledSlider(
-          label: '에코',
-          value: state.echo.wet,
-          valueLabel: '${(state.echo.wet * 100).round()}%',
-          onChanged: controller.setEchoWet,
-        ),
-        const SizedBox(height: 14),
-        // 시안의 '크로스피드' 자리. 엔진에 BS2B 크로스피드가 없어서 스테레오
-        // 넓이로 대신한다.
-        LabeledSlider(
-          label: '공간 넓이',
-          value: state.reverb.width,
-          valueLabel: '${(state.reverb.width * 100).round()}%',
-          onChanged: controller.setWidth,
-        ),
-        const SizedBox(height: 18),
-        Row(
+        SettingsSection(
+          title: '환경 보정',
           children: [
-            const Expanded(
-              child: Text('등청감 보정',
-                  style: TextStyle(fontSize: 15, color: AppColors.t2)),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 10),
+              child: StreamBuilder<List<Preset>>(
+                stream: presets.watchByLayer(PresetLayer.environment),
+                builder: (context, snap) {
+                  final list = snap.data ?? const <Preset>[];
+                  return Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final p in list)
+                        _Chip(
+                          label: p.name,
+                          selected: state.environmentPreset?.id == p.id,
+                          onTap: () => controller.selectEnvironment(p),
+                          margin: EdgeInsets.zero,
+                        ),
+                    ],
+                  );
+                },
+              ),
             ),
-            const Expanded(
-              flex: 2,
-              child: Text('볼륨이 낮을 때 저역과 고역을 보강합니다',
-                  style: AppText.small),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 0, 20, 14),
+              child: Text(
+                '지하철 보정이 저역을 깎는 것은 의도한 것입니다. 지하철 소음이 '
+                '저역이라 저역을 더 올리면 소음과 겹쳐 뭉갭니다.',
+                style: AppText.caption,
+              ),
             ),
-            GlassSwitch(
+          ],
+        ),
+
+        SettingsSection(
+          title: '공간과 보정',
+          children: [
+            _SliderRow(
+              title: '리버브',
+              description: '연동 배속을 낮췄을 때 잘 어울립니다',
+              value: state.reverb.wet,
+              onChanged: controller.setReverbWet,
+            ),
+            _SliderRow(
+              title: '공간 크기',
+              value: state.reverb.roomSize,
+              onChanged: controller.setReverbRoomSize,
+            ),
+            _SliderRow(
+              title: '에코',
+              value: state.echo.wet,
+              onChanged: controller.setEchoWet,
+            ),
+            _SliderRow(
+              title: '공간 넓이',
+              // 시안의 크로스피드 자리. 엔진에 BS2B가 없어서 스테레오 넓이로
+              // 대신한다.
+              description: '스테레오를 벌리거나 좁힙니다',
+              value: state.reverb.width,
+              onChanged: controller.setWidth,
+            ),
+            SettingsSwitchRow(
+              title: '등청감 보정',
+              description: '볼륨이 낮을 때 저역과 고역을 보강합니다',
               value: state.loudnessComp,
               onChanged: controller.setLoudnessComp,
             ),
           ],
         ),
-        const SizedBox(height: 20),
-        const Text(
-          '리버브는 연동 배속을 낮췄을 때 잘 어울립니다. 소리가 두꺼워진 '
-          '자리에 공간이 붙습니다.',
-          style: AppText.small,
+
+        SettingsSection(
+          title: '이퀄라이저',
+          children: [
+            SettingsLinkRow(
+              title: '취향 층 EQ 고치기',
+              description: '점과 종 모양 밴드로 곡선을 만듭니다',
+              onTap: state.tastePreset == null
+                  ? () {}
+                  : () => openEqEditorScreen(context),
+            ),
+          ],
         ),
       ],
+    );
+  }
+}
+
+/// 제목과 설명 아래에 슬라이더를 둔 행.
+class _SliderRow extends StatelessWidget {
+  const _SliderRow({
+    required this.title,
+    required this.value,
+    required this.onChanged,
+    this.description,
+  });
+
+  final String title;
+  final String? description;
+  final double value;
+  final ValueChanged<double> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 6),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: AppColors.divider)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.t1,
+                      ),
+                    ),
+                    if (description != null) ...[
+                      const SizedBox(height: 4),
+                      Text(description!, style: AppText.caption),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                '${(value * 100).round()}%',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.accent,
+                  fontFeatures: tabularFigures,
+                ),
+              ),
+            ],
+          ),
+          SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+            ),
+            child: Slider(value: value.clamp(0, 1), onChanged: onChanged),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 가로로 늘어놓는 작은 알약.
+class _Chip extends StatelessWidget {
+  const _Chip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.margin = const EdgeInsets.only(right: 8),
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  final EdgeInsets margin;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: margin,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+          decoration: BoxDecoration(
+            color: selected ? AppColors.accent : Colors.transparent,
+            borderRadius: BorderRadius.circular(AppRadius.pill),
+            border: Border.all(
+              color: selected ? AppColors.accent : AppColors.glassBorder,
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+              color: selected ? AppColors.bgBase : AppColors.t2,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -706,6 +782,116 @@ class _RowButton extends StatelessWidget {
               ),
               const Icon(Icons.chevron_right, size: 20, color: AppColors.t3),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 아이콘이 붙은 탭 세 개.
+///
+/// Capriccio는 알약 세그먼트가 아니라 위쪽만 둥근 탭을 쓰고 아래에 가로선을
+/// 그어 본문과 나눈다.
+class _EffectTabs extends StatelessWidget {
+  const _EffectTabs({required this.index, required this.onSelect});
+
+  final int index;
+  final ValueChanged<int> onSelect;
+
+  static const _tabs = [
+    (icon: Icons.tune, label: '음향 효과'),
+    (icon: Icons.headphones, label: '추가 효과'),
+    (icon: Icons.ios_share, label: '효과 공유'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: AppColors.divider)),
+      ),
+      child: Row(
+        children: [
+          for (var i = 0; i < _tabs.length; i++)
+            Expanded(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => onSelect(i),
+                child: Container(
+                  height: 52,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: i == index
+                        ? Colors.white.withValues(alpha: 0.14)
+                        : Colors.transparent,
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(12),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        _tabs[i].icon,
+                        size: 17,
+                        color: i == index ? AppColors.t1 : AppColors.t3,
+                      ),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          _tabs[i].label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: i == index
+                                ? FontWeight.w600
+                                : FontWeight.w400,
+                            color: i == index ? AppColors.t1 : AppColors.t3,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 고른 쪽은 채우고 안 고른 쪽은 테두리만 남긴다.
+class _FilterPill extends StatelessWidget {
+  const _FilterPill({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.accent : Colors.transparent,
+          borderRadius: BorderRadius.circular(AppRadius.pill),
+          border: Border.all(color: AppColors.accent),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: selected ? AppColors.bgBase : AppColors.accent,
           ),
         ),
       ),

@@ -50,22 +50,30 @@ class _EqGraphPainter extends CustomPainter {
   final EqCurve? environment;
   final EqCurve? taste;
 
-  static const double minFreq = 20;
-  static const double maxFreq = 20000;
+  // Capriccio의 Parametric EQ 그래프와 같은 축이다. 가로는 32Hz에서 16kHz를
+  // 한 옥타브씩, 세로는 ±10dB에 5dB 눈금.
+  static const double minFreq = 32;
+  static const double maxFreq = 16000;
   static const double maxDb = 12;
 
   static const List<({double f, String label})> _freqLabels = [
-    (f: 20, label: '20Hz'),
-    (f: 100, label: '100'),
-    (f: 500, label: '500'),
-    (f: 2000, label: '2k'),
-    (f: 10000, label: '10k'),
-    (f: 20000, label: '20k'),
+    (f: 32, label: '32'),
+    (f: 64, label: '64'),
+    (f: 128, label: '128'),
+    (f: 256, label: '256'),
+    (f: 512, label: '512'),
+    (f: 1000, label: '1K'),
+    (f: 2000, label: '2K'),
+    (f: 4000, label: '4K'),
+    (f: 8000, label: '8K'),
+    (f: 16000, label: '16K'),
   ];
+
+  static const List<double> _dbLines = [10, 5, 0, -5, -10];
 
   @override
   void paint(Canvas canvas, Size size) {
-    const padL = 20.0;
+    const padL = 32.0;
     const padR = 8.0;
     const padT = 6.0;
     const padB = 20.0;
@@ -78,27 +86,18 @@ class _EqGraphPainter extends CustomPainter {
         (math.log(f / minFreq) / math.log(maxFreq / minFreq)) * gw;
     double dbY(double db) => midY - (db.clamp(-maxDb, maxDb) / maxDb) * (gh / 2);
 
-    // 0dB 기준선
-    canvas.drawLine(
-      Offset(padL, midY),
-      Offset(size.width - padR, midY),
-      Paint()
-        ..color = Colors.white.withValues(alpha: 0.12)
-        ..strokeWidth = 1,
-    );
-
-    // ±6dB 안내선
+    // dB 격자. 0dB만 진하게 둔다.
     final guide = Paint()
-      ..color = Colors.white.withValues(alpha: 0.05)
+      ..color = Colors.white.withValues(alpha: 0.07)
       ..strokeWidth = 1;
-    for (final db in [6.0, -6.0]) {
-      _dashedLine(
-        canvas,
+    final zero = Paint()
+      ..color = Colors.white.withValues(alpha: 0.22)
+      ..strokeWidth = 1;
+    for (final db in _dbLines) {
+      canvas.drawLine(
         Offset(padL, dbY(db)),
         Offset(size.width - padR, dbY(db)),
-        guide,
-        dash: 3,
-        gap: 6,
+        db == 0 ? zero : guide,
       );
     }
 
@@ -106,7 +105,7 @@ class _EqGraphPainter extends CustomPainter {
     final vGuide = Paint()
       ..color = Colors.white.withValues(alpha: 0.06)
       ..strokeWidth = 1;
-    for (final item in _freqLabels.sublist(1, _freqLabels.length - 1)) {
+    for (final item in _freqLabels) {
       final x = fx(item.f);
       canvas.drawLine(Offset(x, padT), Offset(x, size.height - padB), vGuide);
     }
@@ -189,9 +188,14 @@ class _EqGraphPainter extends CustomPainter {
         align: TextAlign.center,
       );
     }
-    _text(canvas, '+12', Offset(padL - 18, dbY(12) - 4), align: TextAlign.left);
-    _text(canvas, '0', Offset(padL - 18, midY - 4), align: TextAlign.left);
-    _text(canvas, '-12', Offset(padL - 18, dbY(-12) - 10), align: TextAlign.left);
+    for (final db in _dbLines) {
+      _text(
+        canvas,
+        '${db.toStringAsFixed(0)} dB',
+        Offset(padL - 4, dbY(db) - 5),
+        align: TextAlign.right,
+      );
+    }
   }
 
   Path _buildPath(
@@ -229,17 +233,6 @@ class _EqGraphPainter extends CustomPainter {
     }
   }
 
-  void _dashedLine(Canvas canvas, Offset a, Offset b, Paint paint,
-      {double dash = 3, double gap = 6}) {
-    final total = (b - a).distance;
-    final dir = (b - a) / total;
-    var d = 0.0;
-    while (d < total) {
-      final next = math.min(d + dash, total);
-      canvas.drawLine(a + dir * d, a + dir * next, paint);
-      d = next + gap;
-    }
-  }
 
   void _text(Canvas canvas, String text, Offset at,
       {TextAlign align = TextAlign.center}) {

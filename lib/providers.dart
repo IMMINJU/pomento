@@ -9,6 +9,7 @@ import 'data/models/tempo.dart';
 import 'data/platform/native_media.dart';
 import 'data/repo/library_repository.dart';
 import 'data/models/app_settings.dart';
+import 'data/models/preset.dart';
 import 'data/repo/preset_repository.dart';
 import 'data/repo/settings_repository.dart';
 import 'data/spotify/spotify_session.dart';
@@ -81,6 +82,16 @@ final sleepTimerProvider =
       controller.consumeTrackEnd;
   return controller;
 });
+
+/// 취향 프리셋 개수. 음향 화면 머리에 붙인다.
+final tastePresetCountProvider = Provider<int>((ref) {
+  return ref.watch(tastePresetsProvider).value?.length ?? 0;
+});
+
+final tastePresetsProvider = StreamProvider<List<Preset>>(
+  (ref) =>
+      ref.watch(presetRepositoryProvider).watchByLayer(PresetLayer.taste),
+);
 
 final trackSortProvider = StateProvider<TrackSort>((ref) => TrackSort.title);
 
