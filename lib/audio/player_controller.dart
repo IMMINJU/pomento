@@ -119,6 +119,7 @@ class PlayerController extends StateNotifier<PlayerState> {
   PlayerController(this._repo, this._handler) : super(const PlayerState()) {
     _wireHandler();
     _finishedSub = AudioEngine.instance.trackFinished.listen((_) => _onFinished());
+    _restoreSession();
   }
 
   final LibraryRepository _repo;
@@ -134,6 +135,11 @@ class PlayerController extends StateNotifier<PlayerState> {
 
   Timer? _ticker;
   StreamSubscription<void>? _finishedSub;
+
+  /// 세션 저장을 몰아서 한다. 위치가 250ms마다 바뀌는데 그때마다 쓰면
+  /// 재생 내내 DB에 쓰게 된다.
+  Timer? _sessionThrottle;
+
   List<int> _shuffleOrder = [];
 
   /// 연속으로 열지 못한 곡 수.
@@ -154,6 +160,67 @@ class PlayerController extends StateNotifier<PlayerState> {
     h.onPrevious = previous;
     h.onStop = stop;
     h.onSeek = seek;
+  }
+
+  // ── 마지막으로 듣던 자리 ──────────────────────────────────────────
+
+  /// 앱을 켜면 듣던 곡을 그 자리에 다시 걸어둔다. 소리는 내지 않는다.
+  ///
+  /// 자동으로 재생하면 이어폰을 안 꽂은 채로 앱을 열었을 때 스피커로 터진다.
+  Future<void> _restoreSession() async {
+    final saved = await _repo.loadSession();
+    if (saved == null || !mounted) return;
+
+    final ids = (saved['queue'] as List?)?.cast<num>().map((e) => e.toInt());
+    if (ids == null || ids.isEmpty) return;
+
+    final tracks = await _repo.tracksByIds(ids.toList());
+    if (tracks.isEmpty || !mounted) return;
+
+    // 곡이 지워졌으면 순번이 밀린다. id로 다시 찾는다.
+    final wantedId = (saved['trackId'] as num?)?.toInt();
+    var index = tracks.indexWhere((t) => t.id == wantedId);
+    if (index < 0) index = 0;
+
+    state = state.copyWith(
+      queue: tracks,
+      index: index,
+      duration: Duration(milliseconds: tracks[index].durationMs),
+      position: Duration(
+        milliseconds: (saved['positionMs'] as num?)?.toInt() ?? 0,
+      ),
+      playing: false,
+      shuffle: saved['shuffle'] as bool? ?? false,
+      repeat: RepeatMode.values.firstWhere(
+        (r) => r.name == saved['repeat'],
+        orElse: () => RepeatMode.off,
+      ),
+      rememberTempo: saved['rememberTempo'] as bool? ?? true,
+    );
+    _rebuildShuffle();
+
+    final tempo = await _repo.tempoFor(tracks[index].id);
+    if (!mounted) return;
+    if (tempo != null) state = state.copyWith(tempo: tempo);
+    _publish();
+  }
+
+  /// 지금 상태를 적어둔다. 위치가 바뀔 때마다 부르되 5초에 한 번만 쓴다.
+  void _saveSession({bool now = false}) {
+    if (state.queue.isEmpty) return;
+    if (!now && (_sessionThrottle?.isActive ?? false)) return;
+    _sessionThrottle?.cancel();
+    if (!now) {
+      _sessionThrottle = Timer(const Duration(seconds: 5), () {});
+    }
+    _repo.saveSession({
+      'queue': state.queue.map((t) => t.id).toList(),
+      'trackId': state.current?.id,
+      'positionMs': state.position.inMilliseconds,
+      'shuffle': state.shuffle,
+      'repeat': state.repeat.name,
+      'rememberTempo': state.rememberTempo,
+    });
   }
 
   // ── 큐 ─────────────────────────────────────────────────────────────
@@ -213,6 +280,7 @@ class PlayerController extends StateNotifier<PlayerState> {
       lastError = null;
       _startTicker();
       _publish();
+      _saveSession(now: true);
     } catch (e) {
       debugPrint('재생 실패 [${track.filePath}]: $e');
       await _failCurrent('이 파일을 열지 못했습니다');
@@ -236,7 +304,17 @@ class PlayerController extends StateNotifier<PlayerState> {
   // ── 재생 제어 ──────────────────────────────────────────────────────
 
   void resume() {
-    if (!_engine.hasTrack) return;
+    // 앱을 다시 켠 직후에는 화면에 곡이 걸려 있어도 엔진에는 아무것도 없다.
+    // 세션을 되살릴 때 소리를 내지 않으려고 파일을 열지 않았기 때문이다.
+    // 여기서 열고 저장해둔 자리로 옮긴다.
+    if (!_engine.hasTrack) {
+      if (state.current == null) return;
+      final at = state.position;
+      _loadCurrent().then((_) {
+        if (mounted && at > Duration.zero) seek(at);
+      });
+      return;
+    }
     _engine.resume();
     state = state.copyWith(playing: true);
     _startTicker();
@@ -244,6 +322,7 @@ class PlayerController extends StateNotifier<PlayerState> {
   }
 
   void pause() {
+    _saveSession(now: true);
     _engine.pause();
     state = state.copyWith(playing: false);
     _stopTicker();
@@ -251,6 +330,13 @@ class PlayerController extends StateNotifier<PlayerState> {
   }
 
   void togglePlay() => state.playing ? pause() : resume();
+
+  /// 목록에서 고른 곡을 처음부터 튼다. 큐는 그대로 둔다.
+  Future<void> playIndex(int index) async {
+    if (index < 0 || index >= state.queue.length) return;
+    state = state.copyWith(index: index, clearLoop: true);
+    await _loadCurrent();
+  }
 
   Future<void> stop() async {
     _stopTicker();
@@ -488,6 +574,7 @@ class PlayerController extends StateNotifier<PlayerState> {
 
       if (pos != state.position) {
         state = state.copyWith(position: pos);
+        _saveSession();
       }
     });
   }
@@ -529,6 +616,7 @@ class PlayerController extends StateNotifier<PlayerState> {
 
   @override
   void dispose() {
+    _sessionThrottle?.cancel();
     _stopTicker();
     _finishedSub?.cancel();
     super.dispose();

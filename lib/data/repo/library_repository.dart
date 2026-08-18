@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/drift.dart';
@@ -50,6 +51,47 @@ class LibraryRepository {
   }
 
   Future<List<Track>> allTracks() => db.select(db.tracks).get();
+
+  // ── 마지막으로 듣던 자리 ──────────────────────────────────────────
+
+  /// 앱을 껐다 켜도 듣던 곡과 위치가 남아 있게 한다.
+  ///
+  /// 큐를 통째로 담지 않고 곡 id만 담는다. 라이브러리에서 곡이 지워졌으면
+  /// 꺼낼 때 걸러낸다.
+  static const String _sessionKey = 'player_session';
+
+  Future<void> saveSession(Map<String, dynamic> value) => db
+      .into(db.keyValues)
+      .insertOnConflictUpdate(
+        KeyValuesCompanion.insert(
+          key: _sessionKey,
+          value: jsonEncode(value),
+        ),
+      );
+
+  Future<Map<String, dynamic>?> loadSession() async {
+    final row = await (db.select(db.keyValues)
+          ..where((r) => r.key.equals(_sessionKey)))
+        .getSingleOrNull();
+    if (row == null) return null;
+    try {
+      return jsonDecode(row.value) as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// id 목록을 준 순서 그대로 되살린다. 사라진 곡은 빠진다.
+  Future<List<Track>> tracksByIds(List<int> ids) async {
+    if (ids.isEmpty) return const [];
+    final rows = await (db.select(db.tracks)..where((t) => t.id.isIn(ids)))
+        .get();
+    final byId = {for (final r in rows) r.id: r};
+    return [
+      for (final id in ids)
+        if (byId[id] != null) byId[id]!,
+    ];
+  }
 
   Future<Track?> trackById(int id) =>
       (db.select(db.tracks)..where((t) => t.id.equals(id))).getSingleOrNull();
