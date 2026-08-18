@@ -66,6 +66,12 @@ class HomeShell extends ConsumerStatefulWidget {
 class _HomeShellState extends ConsumerState<HomeShell> {
   final _navKey = GlobalKey<NavigatorState>();
 
+  /// 마지막으로 뒤로 가기를 누른 시각.
+  ///
+  /// 재생 화면에서 한 번 눌렀다고 앱이 그냥 꺼지면 놀란다. 음악이 나오는
+  /// 중이라면 더 그렇다. 두 번 눌러야 나가게 한다.
+  DateTime? _lastBack;
+
   late final _observer = _StackDepthObserver((depth) {
     if (mounted) ref.read(navDepthProvider.notifier).state = depth;
   });
@@ -104,10 +110,22 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         if (nav != null && nav.canPop()) {
           nav.pop();
         } else if (Platform.isAndroid) {
-          // 안드로이드는 첫 화면에서 한 번 더 누르면 앱을 나가는 것이
-          // 관례다. iOS에는 뒤로 가기 버튼이 없고, 앱이 스스로 종료하는
-          // 것을 애플이 막는다. 그쪽에서는 아무것도 하지 않는다.
-          SystemNavigator.pop();
+          // iOS에는 뒤로 가기 버튼이 없고 앱이 스스로 종료하는 것을 애플이
+          // 막는다. 안드로이드에서만 두 번 눌러 나간다.
+          final now = DateTime.now();
+          final last = _lastBack;
+          if (last != null &&
+              now.difference(last) < const Duration(seconds: 2)) {
+            SystemNavigator.pop();
+            return;
+          }
+          _lastBack = now;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('한 번 더 누르면 종료됩니다'),
+              duration: Duration(seconds: 2),
+            ),
+          );
         }
       },
       child: Scaffold(
