@@ -492,8 +492,8 @@ class _Progress extends StatelessWidget {
             children: [
               Text(formatDuration(state.position), style: AppText.mono),
               const Spacer(),
-              Text('-${formatDuration(state.remainingWallClock)}',
-                  style: AppText.mono),
+              // Capriccio처럼 오른쪽에 곡 전체 길이를 둔다.
+              Text(formatDuration(state.totalWallClock), style: AppText.mono),
             ],
           ),
         ],

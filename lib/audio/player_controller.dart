@@ -74,6 +74,12 @@ class PlayerState {
     return Duration(microseconds: (left.inMicroseconds / speed).round());
   }
 
+  /// 곡 전체 길이도 배속을 반영한다. 0.5배로 틀면 두 배로 걸린다.
+  Duration get totalWallClock {
+    final speed = tempo.speed <= 0 ? 1.0 : tempo.speed;
+    return Duration(microseconds: (duration.inMicroseconds / speed).round());
+  }
+
   double get progress => duration.inMilliseconds <= 0
       ? 0
       : (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0);

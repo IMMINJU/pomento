@@ -66,6 +66,11 @@ class _EffectsScreenState extends ConsumerState<EffectsScreen> {
                   title: '음향',
                   actions: [
                     HeaderAction(
+                      icon: Icons.bookmark_add_outlined,
+                      label: '저장',
+                      onTap: () => _saveDialog(context),
+                    ),
+                    HeaderAction(
                       icon: Icons.refresh,
                       label: '초기화',
                       onTap: () async {
@@ -89,17 +94,22 @@ class _EffectsScreenState extends ConsumerState<EffectsScreen> {
                     onSelect: (i) => setState(() => _tab = i),
                   ),
                 ),
-                const SizedBox(height: 10),
-                _SummaryRow(
-                  summary: state.summary,
-                  onSave: () => _saveDialog(context),
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Text(
+                    state.summary,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppText.small,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 Expanded(
                   child: IndexedStack(
                     index: _tab,
                     children: [
-                      _LayersTab(
+                      _PresetListTab(
                         state: state,
                         controller: controller,
                         bottomInset: bottomInset,
@@ -181,8 +191,16 @@ class _EffectsScreenState extends ConsumerState<EffectsScreen> {
 }
 
 /// 기기 · 환경 · 취향 세 층과 합산 곡선.
-class _LayersTab extends ConsumerStatefulWidget {
-  const _LayersTab({
+/// 취향 프리셋 평면 목록.
+///
+/// Capriccio의 Sound Effects 탭과 같은 모양이다. 이름만 한 줄씩 놓고 지금
+/// 걸린 것을 accent로 표시한다. 누르면 바로 바뀐다.
+///
+/// 기기와 환경 층은 이 목록에 없다. 세 층을 dB 축에서 더하는 구조는 그대로
+/// 살아 있고, 기기 층은 연결된 기기를 보고 자동으로 붙는다. 환경 층은 추가
+/// 효과 탭으로 옮겼다. 첫 화면에서 고를 것을 하나로 줄이려는 선택이다.
+class _PresetListTab extends ConsumerStatefulWidget {
+  const _PresetListTab({
     required this.state,
     required this.controller,
     required this.bottomInset,
@@ -193,225 +211,146 @@ class _LayersTab extends ConsumerStatefulWidget {
   final double bottomInset;
 
   @override
-  ConsumerState<_LayersTab> createState() => _LayersTabState();
+  ConsumerState<_PresetListTab> createState() => _PresetListTabState();
 }
 
-class _LayersTabState extends ConsumerState<_LayersTab> {
-  /// 취향 층에서 내장 프리셋을 볼지, 내가 저장한 것을 볼지.
+class _PresetListTabState extends ConsumerState<_PresetListTab> {
+  /// 내장 프리셋을 볼지, 내가 저장한 것을 볼지.
   bool _custom = false;
 
   @override
   Widget build(BuildContext context) {
-    final state = widget.state;
-    final controller = widget.controller;
-    final bottomInset = widget.bottomInset;
-    final presets = ref.watch(presetRepositoryProvider);
+    final selectedId = widget.state.tastePreset?.id;
 
-    return ListView(
-      padding: EdgeInsets.only(bottom: bottomInset + 24),
-      children: [
-        // ── 1층: 기기 ────────────────────────────────────
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SectionLabel('1. 기기'),
-              const SizedBox(height: 8),
-              Container(
-                height: 76,
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(AppRadius.card),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.14),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.08),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.14),
+    return StreamBuilder<List<Preset>>(
+      stream: ref
+          .watch(presetRepositoryProvider)
+          .watchByLayer(PresetLayer.taste),
+      builder: (context, snapshot) {
+        final all = snapshot.data ?? const <Preset>[];
+        final list = all.where((p) => p.builtin != _custom).toList();
+
+        return ListView(
+          padding: EdgeInsets.only(bottom: widget.bottomInset + 24),
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+              child: Row(
+                children: [
+                  for (final entry in const [
+                    (false, '프리셋'),
+                    (true, '사용자 효과'),
+                  ])
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: GlassPill(
+                        selected: _custom == entry.$1,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 7),
+                        onTap: () => setState(() => _custom = entry.$1),
+                        child: Text(
+                          entry.$2,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: _custom == entry.$1
+                                ? FontWeight.w600
+                                : FontWeight.w400,
+                            color: _custom == entry.$1
+                                ? AppColors.t1
+                                : AppColors.t3,
+                          ),
                         ),
                       ),
-                      child: const Icon(Icons.headphones,
-                          size: 20, color: AppColors.t2),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            state.devicePreset?.name ?? state.device.label,
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w500,
-                              color: AppColors.t2,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            state.deviceAuto ? '기기 보정 자동 적용' : '직접 고른 보정',
-                            style: AppText.small,
-                          ),
-                        ],
-                      ),
-                    ),
-                    GlassSwitch(
-                      value: state.deviceEnabled,
-                      onChanged: controller.setDeviceEnabled,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 8),
-              // 자동 감지가 틀렸을 때 직접 고를 수 있게 한다.
-              FutureBuilder<List<Preset>>(
-                future: presets.byLayer(PresetLayer.device),
-                builder: (context, snap) {
-                  final list = snap.data ?? const <Preset>[];
-                  if (list.isEmpty) return const SizedBox.shrink();
-                  return SizedBox(
-                    height: 32,
-                    child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      children: [
-                        GlassPill(
-                          selected: state.deviceAuto,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6),
-                          onTap: controller.enableDeviceAuto,
-                          child: const Text('자동',
-                              style: TextStyle(
-                                  fontSize: 12, color: AppColors.t2)),
-                        ),
-                        const SizedBox(width: 6),
-                        for (final p in list) ...[
-                          GlassPill(
-                            selected: !state.deviceAuto &&
-                                state.devicePreset?.id == p.id,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 6),
-                            onTap: () => controller.selectDevicePreset(p),
-                            child: Text(p.name,
-                                style: const TextStyle(
-                                    fontSize: 12, color: AppColors.t2)),
-                          ),
-                          const SizedBox(width: 6),
-                        ],
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
-
-        // ── 2층: 환경 ────────────────────────────────────
-        const SizedBox(height: 24),
-        const Padding(
-          padding: EdgeInsets.only(left: 20, bottom: 10),
-          child: SectionLabel('2. 환경'),
-        ),
-        _PresetChips(
-          layer: PresetLayer.environment,
-          selectedId: state.environmentPreset?.id,
-          onSelect: controller.selectEnvironment,
-        ),
-
-        // ── 3층: 취향 ────────────────────────────────────
-        const SizedBox(height: 24),
-        Padding(
-          padding: const EdgeInsets.only(left: 20, right: 20, bottom: 10),
-          child: Row(
-            children: [
-              const SectionLabel('3. 취향'),
-              const Spacer(),
-              // Capriccio의 Presets | Custom Effects 알약.
-              for (final entry in const [(false, '프리셋'), (true, '내가 만든 것')])
-                Padding(
-                  padding: const EdgeInsets.only(left: 6),
-                  child: GlassPill(
-                    selected: _custom == entry.$1,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 11, vertical: 5),
-                    onTap: () => setState(() => _custom = entry.$1),
-                    child: Text(
-                      entry.$2,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: _custom == entry.$1
-                            ? AppColors.t1
-                            : AppColors.t3,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-        _TastePresetCards(
-          selectedId: state.tastePreset?.id,
-          onSelect: controller.selectTaste,
-          custom: _custom,
-        ),
-
-        // ── 합산 그래프 ──────────────────────────────────
-        const SizedBox(height: 20),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Container(
-            height: 200,
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(AppRadius.card),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.14),
+                ],
               ),
             ),
-            child: Stack(
-              children: [
-                EqGraph(
-                  device:
-                      state.deviceEnabled ? state.devicePreset?.eq : null,
-                  environment: state.environmentPreset?.eq,
-                  taste: state.tastePreset?.eq,
-                  height: 150,
+            if (list.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20),
+                child: Text(
+                  '저장해둔 것이 없습니다. 소리를 맞춘 뒤 위의 저장을 누르세요',
+                  style: AppText.small,
                 ),
-                const Positioned(top: 0, right: 0, child: _GraphLegend()),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: _RowButton(
-            icon: Icons.graphic_eq,
-            label: '취향 층 EQ 직접 고치기',
-            sub: '점을 옮겨 곡선을 만듭니다. 기기와 환경 층은 그대로 둡니다',
-            onTap: state.tastePreset == null
-                ? null
-                : () => openEqEditorScreen(context),
-          ),
-        ),
-      ],
+              )
+            else
+              for (final p in list)
+                _PresetRow(
+                  preset: p,
+                  selected: p.id == selectedId,
+                  onTap: () => widget.controller.selectTaste(p),
+                ),
+          ],
+        );
+      },
     );
   }
 }
 
-/// 층 밖의 처리. 리버브, 에코, 넓이, 등청감 보정.
-class _ExtrasTab extends StatelessWidget {
+/// 목록 한 줄. 장식을 넣지 않는다.
+class _PresetRow extends StatelessWidget {
+  const _PresetRow({
+    required this.preset,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final Preset preset;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: AppColors.divider)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    preset.name,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight:
+                          selected ? FontWeight.w600 : FontWeight.w400,
+                      color: selected ? AppColors.accent : AppColors.t1,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    preset.summary,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppText.small,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            MiniEqCurve(curve: preset.eq, width: 56, height: 20),
+            if (selected) ...[
+              const SizedBox(width: 10),
+              const Icon(Icons.check, size: 18, color: AppColors.accent),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 층 밖의 처리와, 첫 화면에서 접어둔 두 층.
+///
+/// 기기 보정은 연결된 기기를 보고 자동으로 붙으므로 평소에는 볼 일이 없다.
+/// 환경 보정도 하루에 몇 번 바꿀 것이라 첫 화면을 차지할 이유가 없다.
+class _ExtrasTab extends ConsumerWidget {
   const _ExtrasTab({
     required this.state,
     required this.controller,
@@ -423,10 +362,145 @@ class _ExtrasTab extends StatelessWidget {
   final double bottomInset;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final presets = ref.watch(presetRepositoryProvider);
+
     return ListView(
       padding: EdgeInsets.fromLTRB(20, 0, 20, bottomInset + 24),
       children: [
+        const SectionLabel('기기 보정'),
+        const SizedBox(height: 8),
+        Container(
+          height: 68,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: BoxDecoration(
+            color: AppColors.glass,
+            borderRadius: BorderRadius.circular(AppRadius.card),
+            border: Border.all(color: AppColors.glassBorder),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.headphones, size: 20, color: AppColors.t2),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      state.devicePreset?.name ?? state.device.label,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.t1,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      state.deviceAuto ? '연결된 기기를 보고 자동 적용' : '직접 고른 보정',
+                      style: AppText.small,
+                    ),
+                  ],
+                ),
+              ),
+              GlassSwitch(
+                value: state.deviceEnabled,
+                onChanged: controller.setDeviceEnabled,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        FutureBuilder<List<Preset>>(
+          future: presets.byLayer(PresetLayer.device),
+          builder: (context, snap) {
+            final list = snap.data ?? const <Preset>[];
+            if (list.isEmpty) return const SizedBox.shrink();
+            return SizedBox(
+              height: 32,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                children: [
+                  GlassPill(
+                    selected: state.deviceAuto,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 6),
+                    onTap: controller.enableDeviceAuto,
+                    child: const Text('자동',
+                        style: TextStyle(fontSize: 12, color: AppColors.t2)),
+                  ),
+                  const SizedBox(width: 6),
+                  for (final p in list) ...[
+                    GlassPill(
+                      selected:
+                          !state.deviceAuto && state.devicePreset?.id == p.id,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      onTap: () => controller.selectDevicePreset(p),
+                      child: Text(p.name,
+                          style: const TextStyle(
+                              fontSize: 12, color: AppColors.t2)),
+                    ),
+                    const SizedBox(width: 6),
+                  ],
+                ],
+              ),
+            );
+          },
+        ),
+
+        const SizedBox(height: 24),
+        const SectionLabel('환경 보정'),
+        const SizedBox(height: 8),
+        StreamBuilder<List<Preset>>(
+          stream: presets.watchByLayer(PresetLayer.environment),
+          builder: (context, snap) {
+            final list = snap.data ?? const <Preset>[];
+            return Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final p in list)
+                  GlassPill(
+                    selected: state.environmentPreset?.id == p.id,
+                    onTap: () => controller.selectEnvironment(p),
+                    child: Text(
+                      p.name,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: state.environmentPreset?.id == p.id
+                            ? FontWeight.w600
+                            : FontWeight.w400,
+                        color: state.environmentPreset?.id == p.id
+                            ? AppColors.t1
+                            : AppColors.t2,
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          '지하철 보정이 저역을 깎는 것은 의도한 것입니다. 지하철 소음이 '
+          '저역이라 저역을 더 올리면 소음과 겹쳐 뭉갭니다.',
+          style: AppText.small,
+        ),
+
+        const SizedBox(height: 24),
+        _RowButton(
+          icon: Icons.graphic_eq,
+          label: '취향 층 EQ 고치기',
+          sub: '점과 종 모양 밴드로 곡선을 만듭니다',
+          onTap: state.tastePreset == null
+              ? null
+              : () => openEqEditorScreen(context),
+        ),
+
+        const SizedBox(height: 24),
+        const SectionLabel('공간과 보정'),
+        const SizedBox(height: 12),
         LabeledSlider(
           label: '리버브',
           value: state.reverb.wet,
@@ -485,10 +559,6 @@ class _ExtrasTab extends StatelessWidget {
   }
 }
 
-/// 취향 층을 주고받는 자리.
-///
-/// 기기 층은 여기 없다. 두 사람의 이어폰 특성이 달라서 완성된 곡선을 통째로
-/// 주고받으면 상대 폰에서 어긋난다.
 class _ShareTab extends ConsumerWidget {
   const _ShareTab({required this.bottomInset});
 
@@ -592,38 +662,6 @@ class _ShareTab extends ConsumerWidget {
 ///
 /// 전에는 시트 맨 아래에 붙어 있었다. 이제 그 자리를 미니 플레이어가 쓰므로
 /// 위로 올렸다.
-class _SummaryRow extends StatelessWidget {
-  const _SummaryRow({required this.summary, required this.onSave});
-
-  final String summary;
-  final VoidCallback onSave;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              summary,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: AppText.caption,
-            ),
-          ),
-          const SizedBox(width: 10),
-          AccentButton(
-            label: '저장',
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            onPressed: onSave,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _RowButton extends StatelessWidget {
   const _RowButton({
     required this.icon,
@@ -671,185 +709,6 @@ class _RowButton extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _GraphLegend extends StatelessWidget {
-  const _GraphLegend();
-
-  @override
-  Widget build(BuildContext context) {
-    const items = [
-      (label: '기기 보정', alpha: 0.35, dashed: true),
-      (label: '환경 보정', alpha: 0.45, dashed: true),
-      (label: '취향', alpha: 0.55, dashed: true),
-      (label: '합산', alpha: 1.0, dashed: false),
-    ];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (final item in items)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 3),
-            child: Row(
-              children: [
-                Container(
-                  width: 16,
-                  height: item.dashed ? 1 : 2,
-                  color: item.dashed
-                      ? Colors.white.withValues(alpha: item.alpha)
-                      : AppColors.accent,
-                ),
-                const SizedBox(width: 5),
-                Text(item.label,
-                    style: const TextStyle(fontSize: 10, color: AppColors.t3)),
-              ],
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-class _PresetChips extends ConsumerWidget {
-  const _PresetChips({
-    required this.layer,
-    required this.selectedId,
-    required this.onSelect,
-  });
-
-  final PresetLayer layer;
-  final String? selectedId;
-  final ValueChanged<Preset> onSelect;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return StreamBuilder<List<Preset>>(
-      stream: ref.watch(presetRepositoryProvider).watchByLayer(layer),
-      builder: (context, snapshot) {
-        final list = snapshot.data ?? const <Preset>[];
-        return SizedBox(
-          height: 36,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.only(left: 20, right: 8),
-            itemCount: list.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 8),
-            itemBuilder: (context, i) => GlassPill(
-              selected: list[i].id == selectedId,
-              onTap: () => onSelect(list[i]),
-              child: Text(
-                list[i].name,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: list[i].id == selectedId
-                      ? FontWeight.w600
-                      : FontWeight.w400,
-                  color: list[i].id == selectedId
-                      ? AppColors.t1
-                      : AppColors.t2,
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _TastePresetCards extends ConsumerWidget {
-  const _TastePresetCards({
-    required this.selectedId,
-    required this.onSelect,
-    this.custom = false,
-  });
-
-  final String? selectedId;
-  final ValueChanged<Preset> onSelect;
-
-  /// 참이면 내가 저장한 것만, 거짓이면 내장 프리셋만 보여준다.
-  final bool custom;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return StreamBuilder<List<Preset>>(
-      stream: ref
-          .watch(presetRepositoryProvider)
-          .watchByLayer(PresetLayer.taste),
-      builder: (context, snapshot) {
-        final all = snapshot.data ?? const <Preset>[];
-        final list = all.where((p) => p.builtin != custom).toList();
-        if (list.isEmpty) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20),
-            child: Text('저장해둔 것이 없습니다. 소리를 맞춘 뒤 저장을 누르세요',
-                style: AppText.small),
-          );
-        }
-        return SizedBox(
-          height: 92,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.only(left: 20, right: 8),
-            itemCount: list.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 10),
-            itemBuilder: (context, i) {
-              final p = list[i];
-              final sel = p.id == selectedId;
-              return GestureDetector(
-                onTap: () => onSelect(p),
-                child: Container(
-                  width: 132,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color:
-                        Colors.white.withValues(alpha: sel ? 0.14 : 0.08),
-                    borderRadius: BorderRadius.circular(AppRadius.card),
-                    border: Border.all(
-                      color: sel
-                          ? AppColors.accent
-                          : Colors.white.withValues(alpha: 0.14),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.06),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: MiniEqCurve(
-                          curve: p.eq,
-                          width: 96,
-                          height: 28,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        p.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 14,
-                          height: 20 / 14,
-                          fontWeight:
-                              sel ? FontWeight.w600 : FontWeight.w400,
-                          color: sel ? AppColors.t1 : AppColors.t2,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        );
-      },
     );
   }
 }
