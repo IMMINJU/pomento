@@ -133,6 +133,34 @@ final activeSourceProvider =
     StateProvider<PlaybackSource>((ref) => PlaybackSource.local);
 
 /// Spotify 검색과 App Remote 재생.
+/// 두 재생이 겹치지 않게 한다.
+///
+/// 한쪽이 소리를 내기 직전에 다른 쪽을 멈추고, 지금 어느 쪽이 울고 있는지를
+/// activeSourceProvider에 적는다. 앱 뼈대에서 한 번 watch해야 걸린다.
+///
+/// 화면마다 상대를 멈추던 방식은 한 군데씩 빠진다. 실제로 검색 화면에만
+/// 있었고 라이브러리·큐·미니 플레이어에서는 두 소리가 겹쳤다.
+final playbackRefereeProvider = Provider<void>((ref) {
+  final local = ref.watch(playerControllerProvider.notifier);
+  final spotify = ref.watch(spotifySessionProvider.notifier);
+
+  local.onWillPlay = () {
+    final s = ref.read(spotifySessionProvider);
+    if (s.connected && !s.paused) spotify.pauseNow();
+    ref.read(activeSourceProvider.notifier).state = PlaybackSource.local;
+  };
+
+  spotify.onWillPlay = () {
+    if (ref.read(playerControllerProvider).playing) local.pause();
+    ref.read(activeSourceProvider.notifier).state = PlaybackSource.spotify;
+  };
+
+  ref.onDispose(() {
+    local.onWillPlay = null;
+    spotify.onWillPlay = null;
+  });
+});
+
 final spotifySessionProvider =
     StateNotifierProvider<SpotifySession, SpotifyState>(
   (ref) => SpotifySession(),

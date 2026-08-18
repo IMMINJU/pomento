@@ -13,7 +13,7 @@ class PlayerApp extends StatelessWidget {
       const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
-        systemNavigationBarColor: AppColors.bgBase,
+        systemNavigationBarColor: AppColors.paper,
         systemNavigationBarIconBrightness: Brightness.light,
       ),
     );

@@ -8,6 +8,7 @@ import 'gesture_settings_screen.dart';
 import 'home_shell.dart';
 import 'player_screen.dart';
 import 'theme.dart';
+import 'widgets/paper.dart';
 import 'widgets/screen_header.dart';
 import 'widgets/settings_list.dart';
 
@@ -28,174 +29,175 @@ class SettingsScreen extends ConsumerWidget {
     final c = ref.read(settingsProvider.notifier);
 
     return Scaffold(
-      backgroundColor: AppColors.bgBase,
-      body: SafeArea(
-        bottom: false,
-        child: ListView(
-          padding: EdgeInsets.only(bottom: shellBottomInset(context, ref) + 24),
-          children: [
-            const ScreenHeader(title: '설정', showBack: true),
-
-            SettingsSection(
-              title: '재생 컨트롤',
-              children: [
-                SettingsRow(
-                  title: '탐색 시간 1',
-                  value: '${s.seekShortSeconds}초',
-                  onTap: () async {
-                    final v = await showChoiceDialog<int>(
-                      context: context,
-                      title: '탐색 시간 1',
-                      choices: AppSettings.seekChoices,
-                      selected: s.seekShortSeconds,
-                      label: (v) => '$v초',
-                    );
-                    if (v != null) c.setSeekShort(v);
-                  },
-                ),
-                SettingsRow(
-                  title: '탐색 시간 2',
-                  value: '${s.seekLongSeconds}초',
-                  onTap: () async {
-                    final v = await showChoiceDialog<int>(
-                      context: context,
-                      title: '탐색 시간 2',
-                      choices: AppSettings.seekChoices,
-                      selected: s.seekLongSeconds,
-                      label: (v) => '$v초',
-                    );
-                    if (v != null) c.setSeekLong(v);
-                  },
-                ),
-                SettingsRow(
-                  title: '속도 조절 단위',
-                  value: '${s.speedStep.toStringAsFixed(2)}x',
-                  onTap: () async {
-                    final v = await showChoiceDialog<double>(
-                      context: context,
-                      title: '속도 조절 단위',
-                      choices: AppSettings.speedStepChoices,
-                      selected: s.speedStep,
-                      label: (v) => '${v.toStringAsFixed(2)}x',
-                    );
-                    if (v != null) c.setSpeedStep(v);
-                  },
-                ),
-                SettingsRow(
-                  title: '피치 조절 단위',
-                  value: _pitchLabel(s.pitchStepCents),
-                  description: '센트로도 고를 수 있습니다. 100센트가 한 반음입니다',
-                  onTap: () async {
-                    final v = await showChoiceDialog<int>(
-                      context: context,
-                      title: '피치 조절 단위',
-                      choices: AppSettings.pitchStepChoices,
-                      selected: s.pitchStepCents,
-                      label: _pitchLabel,
-                    );
-                    if (v != null) c.setPitchStep(v);
-                  },
-                ),
-                SettingsRow(
-                  title: '속도 슬라이더 폭',
-                  value: s.speedRange.label,
-                  description: '폭을 좁히면 1.0배 근처를 더 곱게 다룰 수 있습니다',
-                  onTap: () async {
-                    final v = await showChoiceDialog<SpeedRange>(
-                      context: context,
-                      title: '속도 슬라이더 폭',
-                      choices: SpeedRange.values,
-                      selected: s.speedRange,
-                      label: (v) => v.label,
-                    );
-                    if (v != null) c.setSpeedRange(v);
-                  },
-                ),
-                SettingsRow(
-                  title: '넛지 폭',
-                  value: _percent(s.nudgePercent),
-                  description: '누르고 있는 동안만 속도가 밀립니다',
-                  onTap: () async {
-                    final v = await showChoiceDialog<double>(
-                      context: context,
-                      title: '넛지 폭',
-                      choices: AppSettings.nudgeChoices,
-                      selected: s.nudgePercent,
-                      label: _percent,
-                    );
-                    if (v != null) c.setNudgePercent(v);
-                  },
-                ),
-              ],
-            ),
-
-            SettingsSection(
-              title: '제스쳐',
-              children: [
-                SettingsLinkRow(
-                  title: '드래그 제스쳐',
-                  description: '쓸기와 이어 끌기에 걸 동작',
-                  onTap: () => openDragGestureScreen(context),
-                ),
-                SettingsLinkRow(
-                  title: '탭 제스쳐',
-                  description: '두드림에 걸 동작',
-                  onTap: () => openTapGestureScreen(context),
-                ),
-                SettingsSwitchRow(
-                  title: '제스쳐 안내 보이기',
-                  description: '연습 화면 아래에 두 손가락 조작 설명을 둡니다',
-                  value: s.showGestureHint,
-                  onChanged: c.setShowGestureHint,
-                ),
-              ],
-            ),
-
-            SettingsSection(
-              title: '취침 타이머',
-              children: [
-                Consumer(
-                  builder: (context, ref, _) {
-                    final t = ref.watch(sleepTimerProvider);
-                    return SettingsRow(
-                      title: '취침 타이머',
-                      value: t.label,
-                      description: '정해둔 시간이 지나면 재생을 멈춥니다',
-                      onTap: () => showSleepTimerSheet(context),
-                    );
-                  },
-                ),
-              ],
-            ),
-
-            SettingsSection(
-              title: '화면',
-              children: [
-                SettingsSwitchRow(
-                  title: '화면 꺼짐 방지',
-                  description: '앱을 보고 있는 동안 화면이 꺼지지 않습니다',
-                  value: s.keepScreenOn,
-                  onChanged: c.setKeepScreenOn,
-                ),
-              ],
-            ),
-
-            SettingsSection(
-              title: '음향',
-              children: [
-                SettingsLinkRow(
-                  title: '음향 효과',
-                  description: '기기 보정, 환경 보정, 취향 프리셋',
-                  onTap: () => openEffectsScreen(context),
-                ),
-              ],
-            ),
-
-            const SettingsSection(
-              title: 'Spotify',
-              children: [_SpotifyBlock()],
-            ),
-          ],
+      body: PaperBackground(
+        child: SafeArea(
+          bottom: false,
+          child: ListView(
+            padding: EdgeInsets.only(bottom: shellBottomInset(context, ref) + 24),
+            children: [
+              const ScreenHeader(title: '설정', showBack: true),
+  
+              SettingsSection(
+                title: '재생 컨트롤',
+                children: [
+                  SettingsRow(
+                    title: '탐색 시간 1',
+                    value: '${s.seekShortSeconds}초',
+                    onTap: () async {
+                      final v = await showChoiceDialog<int>(
+                        context: context,
+                        title: '탐색 시간 1',
+                        choices: AppSettings.seekChoices,
+                        selected: s.seekShortSeconds,
+                        label: (v) => '$v초',
+                      );
+                      if (v != null) c.setSeekShort(v);
+                    },
+                  ),
+                  SettingsRow(
+                    title: '탐색 시간 2',
+                    value: '${s.seekLongSeconds}초',
+                    onTap: () async {
+                      final v = await showChoiceDialog<int>(
+                        context: context,
+                        title: '탐색 시간 2',
+                        choices: AppSettings.seekChoices,
+                        selected: s.seekLongSeconds,
+                        label: (v) => '$v초',
+                      );
+                      if (v != null) c.setSeekLong(v);
+                    },
+                  ),
+                  SettingsRow(
+                    title: '속도 조절 단위',
+                    value: '${s.speedStep.toStringAsFixed(2)}x',
+                    onTap: () async {
+                      final v = await showChoiceDialog<double>(
+                        context: context,
+                        title: '속도 조절 단위',
+                        choices: AppSettings.speedStepChoices,
+                        selected: s.speedStep,
+                        label: (v) => '${v.toStringAsFixed(2)}x',
+                      );
+                      if (v != null) c.setSpeedStep(v);
+                    },
+                  ),
+                  SettingsRow(
+                    title: '피치 조절 단위',
+                    value: _pitchLabel(s.pitchStepCents),
+                    description: '센트로도 고를 수 있습니다. 100센트가 한 반음입니다',
+                    onTap: () async {
+                      final v = await showChoiceDialog<int>(
+                        context: context,
+                        title: '피치 조절 단위',
+                        choices: AppSettings.pitchStepChoices,
+                        selected: s.pitchStepCents,
+                        label: _pitchLabel,
+                      );
+                      if (v != null) c.setPitchStep(v);
+                    },
+                  ),
+                  SettingsRow(
+                    title: '속도 슬라이더 폭',
+                    value: s.speedRange.label,
+                    description: '폭을 좁히면 1.0배 근처를 더 곱게 다룰 수 있습니다',
+                    onTap: () async {
+                      final v = await showChoiceDialog<SpeedRange>(
+                        context: context,
+                        title: '속도 슬라이더 폭',
+                        choices: SpeedRange.values,
+                        selected: s.speedRange,
+                        label: (v) => v.label,
+                      );
+                      if (v != null) c.setSpeedRange(v);
+                    },
+                  ),
+                  SettingsRow(
+                    title: '넛지 폭',
+                    value: _percent(s.nudgePercent),
+                    description: '누르고 있는 동안만 속도가 밀립니다',
+                    onTap: () async {
+                      final v = await showChoiceDialog<double>(
+                        context: context,
+                        title: '넛지 폭',
+                        choices: AppSettings.nudgeChoices,
+                        selected: s.nudgePercent,
+                        label: _percent,
+                      );
+                      if (v != null) c.setNudgePercent(v);
+                    },
+                  ),
+                ],
+              ),
+  
+              SettingsSection(
+                title: '제스쳐',
+                children: [
+                  SettingsLinkRow(
+                    title: '드래그 제스쳐',
+                    description: '쓸기와 이어 끌기에 걸 동작',
+                    onTap: () => openDragGestureScreen(context),
+                  ),
+                  SettingsLinkRow(
+                    title: '탭 제스쳐',
+                    description: '두드림에 걸 동작',
+                    onTap: () => openTapGestureScreen(context),
+                  ),
+                  SettingsSwitchRow(
+                    title: '제스쳐 안내 보이기',
+                    description: '연습 화면 아래에 두 손가락 조작 설명을 둡니다',
+                    value: s.showGestureHint,
+                    onChanged: c.setShowGestureHint,
+                  ),
+                ],
+              ),
+  
+              SettingsSection(
+                title: '취침 타이머',
+                children: [
+                  Consumer(
+                    builder: (context, ref, _) {
+                      final t = ref.watch(sleepTimerProvider);
+                      return SettingsRow(
+                        title: '취침 타이머',
+                        value: t.label,
+                        description: '정해둔 시간이 지나면 재생을 멈춥니다',
+                        onTap: () => showSleepTimerSheet(context),
+                      );
+                    },
+                  ),
+                ],
+              ),
+  
+              SettingsSection(
+                title: '화면',
+                children: [
+                  SettingsSwitchRow(
+                    title: '화면 꺼짐 방지',
+                    description: '앱을 보고 있는 동안 화면이 꺼지지 않습니다',
+                    value: s.keepScreenOn,
+                    onChanged: c.setKeepScreenOn,
+                  ),
+                ],
+              ),
+  
+              SettingsSection(
+                title: '음향',
+                children: [
+                  SettingsLinkRow(
+                    title: '음향 효과',
+                    description: '기기 보정, 환경 보정, 취향 프리셋',
+                    onTap: () => openEffectsScreen(context),
+                  ),
+                ],
+              ),
+  
+              const SettingsSection(
+                title: 'Spotify',
+                children: [_SpotifyBlock()],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -250,7 +252,7 @@ class _SpotifyBlockState extends ConsumerState<_SpotifyBlock> {
         Container(
           padding: const EdgeInsets.fromLTRB(20, 12, 12, 12),
           decoration: const BoxDecoration(
-            border: Border(bottom: BorderSide(color: AppColors.divider)),
+            border: Border(bottom: BorderSide(color: AppColors.line)),
           ),
           child: Row(
             children: [
@@ -258,13 +260,13 @@ class _SpotifyBlockState extends ConsumerState<_SpotifyBlock> {
                 child: TextField(
                   controller: _text,
                   style: AppText.body,
-                  cursorColor: AppColors.accent,
+                  cursorColor: AppColors.cover,
                   onSubmitted: session.setClientId,
                   decoration: const InputDecoration(
                     isDense: true,
                     border: InputBorder.none,
                     labelText: 'Client ID',
-                    labelStyle: TextStyle(color: AppColors.t3, fontSize: 14),
+                    labelStyle: TextStyle(color: AppColors.ink3, fontSize: 14),
                   ),
                 ),
               ),
@@ -277,7 +279,7 @@ class _SpotifyBlockState extends ConsumerState<_SpotifyBlock> {
                   );
                 },
                 child: const Text('저장',
-                    style: TextStyle(fontSize: 16, color: AppColors.accent)),
+                    style: TextStyle(fontSize: 16, color: AppColors.cover)),
               ),
             ],
           ),
@@ -289,7 +291,7 @@ class _SpotifyBlockState extends ConsumerState<_SpotifyBlock> {
           child: Container(
             padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
             decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: AppColors.divider)),
+              border: Border(bottom: BorderSide(color: AppColors.line)),
             ),
             child: Row(
               children: [
@@ -302,7 +304,7 @@ class _SpotifyBlockState extends ConsumerState<_SpotifyBlock> {
                         style: const TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w600,
-                          color: AppColors.t1,
+                          color: AppColors.ink1,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -311,7 +313,7 @@ class _SpotifyBlockState extends ConsumerState<_SpotifyBlock> {
                             (s.connected
                                 ? 'Spotify 앱에 연결됨'
                                 : 'Spotify로 트는 소리에는 배속과 음향 보정이 걸리지 않습니다'),
-                        style: AppText.caption,
+                        style: AppText.sub,
                       ),
                     ],
                   ),
@@ -323,7 +325,7 @@ class _SpotifyBlockState extends ConsumerState<_SpotifyBlock> {
                     height: 18,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: AppColors.accent,
+                      color: AppColors.cover,
                     ),
                   )
                 else
@@ -332,7 +334,7 @@ class _SpotifyBlockState extends ConsumerState<_SpotifyBlock> {
                         ? Icons.check_circle
                         : Icons.radio_button_unchecked,
                     size: 20,
-                    color: s.connected ? AppColors.accent : AppColors.t3,
+                    color: s.connected ? AppColors.cover : AppColors.ink3,
                   ),
               ],
             ),

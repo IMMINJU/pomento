@@ -131,6 +131,16 @@ class PlayerController extends StateNotifier<PlayerState> {
   /// 오디오 계층에 직접 넣지 않으려고 고리만 뚫어둔다.
   bool Function()? shouldStopAfterTrack;
 
+  /// 소리를 내기 직전에 부른다.
+  ///
+  /// Spotify가 울고 있으면 여기서 멈춘다. 재생을 시작하는 자리가 목록, 큐,
+  /// 미니 플레이어, 검색으로 흩어져 있어서 호출하는 쪽마다 막으면 한 군데는
+  /// 반드시 빠진다. 실제로 검색 화면에만 그 처리가 있었다.
+  ///
+  /// 오디오 계층이 Spotify를 알 필요는 없으므로 고리만 뚫어두고 연결은
+  /// providers.dart에서 한다.
+  VoidCallback? onWillPlay;
+
   final AudioEngine _engine = AudioEngine.instance;
 
   Timer? _ticker;
@@ -251,6 +261,7 @@ class PlayerController extends StateNotifier<PlayerState> {
   Future<void> _loadCurrent() async {
     final track = state.current;
     if (track == null) return;
+    onWillPlay?.call();
 
     if (!File(track.filePath).existsSync()) {
       debugPrint('파일이 없다: ${track.filePath}');
@@ -304,6 +315,7 @@ class PlayerController extends StateNotifier<PlayerState> {
   // ── 재생 제어 ──────────────────────────────────────────────────────
 
   void resume() {
+    onWillPlay?.call();
     // 앱을 다시 켠 직후에는 화면에 곡이 걸려 있어도 엔진에는 아무것도 없다.
     // 세션을 되살릴 때 소리를 내지 않으려고 파일을 열지 않았기 때문이다.
     // 여기서 열고 저장해둔 자리로 옮긴다.

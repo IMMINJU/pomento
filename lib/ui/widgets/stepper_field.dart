@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../theme.dart';
+import 'artwork_tone.dart';
 
 /// 라벨 + 숫자칸 + 슬라이더 + −/+ 한 세트.
 ///
@@ -198,12 +199,10 @@ class _StepperFieldState extends State<StepperField> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(widget.label,
-                          style: const TextStyle(
-                              fontSize: 15, color: AppColors.t2)),
+                      Text(widget.label, style: AppText.label),
                       if (widget.subLabel != null) ...[
-                        const SizedBox(height: 2),
-                        Text(widget.subLabel!, style: AppText.small),
+                        const SizedBox(height: 3),
+                        Text(widget.subLabel!, style: AppText.sub),
                       ],
                     ],
                   ),
@@ -218,6 +217,10 @@ class _StepperFieldState extends State<StepperField> {
                   child: SliderTheme(
                     data: SliderTheme.of(context).copyWith(
                       trackHeight: 2,
+                      activeTrackColor: CoverScope.of(context).accent,
+                      inactiveTrackColor: AppColors.paperLo,
+                      thumbColor: CoverScope.of(context).accent,
+                      overlayColor: CoverScope.of(context).accentTint,
                       overlayShape:
                           const RoundSliderOverlayShape(overlayRadius: 14),
                     ),
@@ -230,7 +233,7 @@ class _StepperFieldState extends State<StepperField> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: 6),
                 _stepButton(Icons.remove, -1),
                 const SizedBox(width: 8),
                 _stepButton(Icons.add, 1),
@@ -243,14 +246,15 @@ class _StepperFieldState extends State<StepperField> {
   }
 
   Widget _numberBox() {
+    final tone = CoverScope.of(context);
+    // 테두리 대신 가라앉은 면으로 구분한다
     return Container(
-      width: 96,
-      height: 36,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      width: 104,
+      height: 40,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: AppColors.glass,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.glassBorder),
+        color: AppColors.paperLo,
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         children: [
@@ -265,12 +269,8 @@ class _StepperFieldState extends State<StepperField> {
               ),
               textInputAction: TextInputAction.done,
               onSubmitted: (_) => _focus.unfocus(),
-              cursorColor: AppColors.accent,
-              style: const TextStyle(
-                fontSize: 16,
-                color: AppColors.t1,
-                fontFeatures: tabularFigures,
-              ),
+              cursorColor: tone.accent,
+              style: AppText.num.copyWith(fontSize: 17),
               decoration: const InputDecoration(
                 isDense: true,
                 border: InputBorder.none,
@@ -280,7 +280,7 @@ class _StepperFieldState extends State<StepperField> {
           ),
           if (widget.suffix != null) ...[
             const SizedBox(width: 3),
-            Text(widget.suffix!, style: AppText.small),
+            Text(widget.suffix!, style: AppText.sub),
           ],
         ],
       ),
@@ -293,14 +293,13 @@ class _StepperFieldState extends State<StepperField> {
       onTapUp: (_) => _stopRepeat(),
       onTapCancel: _stopRepeat,
       child: Container(
-        width: 34,
-        height: 34,
-        decoration: BoxDecoration(
+        width: AppSpace.tap,
+        height: AppSpace.tap,
+        decoration: const BoxDecoration(
           shape: BoxShape.circle,
-          color: AppColors.glass,
-          border: Border.all(color: AppColors.glassBorder),
+          color: AppColors.paperHi,
         ),
-        child: Icon(icon, size: 18, color: AppColors.t1),
+        child: Icon(icon, size: 20, color: AppColors.ink1),
       ),
     );
   }

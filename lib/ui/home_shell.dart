@@ -1,7 +1,5 @@
-import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
@@ -33,17 +31,17 @@ final miniPlayerVisibleProvider = Provider<bool>((ref) {
   return ref.watch(navDepthProvider) > 1;
 });
 
-void openLibraryScreen(BuildContext context) => Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const LibraryScreen()),
-    );
+void openLibraryScreen(BuildContext context) => Navigator.of(
+  context,
+).push(MaterialPageRoute<void>(builder: (_) => const LibraryScreen()));
 
-void openSearchScreen(BuildContext context) => Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const SearchScreen()),
-    );
+void openSearchScreen(BuildContext context) => Navigator.of(
+  context,
+).push(MaterialPageRoute<void>(builder: (_) => const SearchScreen()));
 
-void openSettingsScreen(BuildContext context) => Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
-    );
+void openSettingsScreen(BuildContext context) => Navigator.of(
+  context,
+).push(MaterialPageRoute<void>(builder: (_) => const SettingsScreen()));
 
 /// 곡을 고르고 나면 재생 화면으로 돌아온다.
 void backToPlayer(BuildContext context) =>
@@ -70,7 +68,6 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   ///
   /// 재생 화면에서 한 번 눌렀다고 앱이 그냥 꺼지면 놀란다. 음악이 나오는
   /// 중이라면 더 그렇다. 두 번 눌러야 나가게 한다.
-  DateTime? _lastBack;
 
   late final _observer = _StackDepthObserver((depth) {
     if (mounted) ref.read(navDepthProvider.notifier).state = depth;
@@ -94,6 +91,9 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
+    // 두 재생이 겹치지 않게 하는 심판. 한 번은 watch해야 고리가 걸린다
+    ref.watch(playbackRefereeProvider);
+
     // 설정이 바뀔 때만 시스템에 알린다. 매 프레임 부르면 안 된다.
     ref.listen<bool>(
       settingsProvider.select((s) => s.keepScreenOn),
@@ -109,27 +109,17 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         final nav = _navKey.currentState;
         if (nav != null && nav.canPop()) {
           nav.pop();
-        } else if (Platform.isAndroid) {
-          // iOS에는 뒤로 가기 버튼이 없고 앱이 스스로 종료하는 것을 애플이
-          // 막는다. 안드로이드에서만 두 번 눌러 나간다.
-          final now = DateTime.now();
-          final last = _lastBack;
-          if (last != null &&
-              now.difference(last) < const Duration(seconds: 2)) {
-            SystemNavigator.pop();
-            return;
-          }
-          _lastBack = now;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('한 번 더 누르면 종료됩니다'),
-              duration: Duration(seconds: 2),
-            ),
-          );
+          return;
         }
+        // 재생 화면이 첫 화면이라 뒤로 갈 곳이 없다. 여기서 앱을 닫으면
+        // 듣다가 뒤로를 눌렀을 때 소리가 끊긴다. 대신 라이브러리를 연다.
+        // 곡을 고르러 가는 길이 뒤로 가기와 같은 방향이라 손에 맞는다.
+        //
+        // 나가려면 홈이나 최근 앱을 쓴다. 뒤로로 나가던 동작은 뺐다.
+        openLibraryScreen(_navKey.currentContext ?? context);
       },
       child: Scaffold(
-        backgroundColor: AppColors.bgBase,
+        backgroundColor: AppColors.paper,
         // 미니 플레이어 뒤로 내용이 지나가야 한다.
         extendBody: true,
         body: Navigator(
@@ -140,8 +130,13 @@ class _HomeShellState extends ConsumerState<HomeShell> {
             builder: (_) => const PlayerScreen(),
           ),
         ),
+        // 여기서 backToPlayer(context)를 부르면 안 된다. HomeShell의
+        // context로 Navigator.of를 부르면 안쪽 _navKey가 아니라 바깥 루트
+        // 네비게이터가 잡혀서 아무 일도 안 일어난다
         bottomNavigationBar: showMini
-            ? MiniPlayer(onTap: () => backToPlayer(context))
+            ? MiniPlayer(
+                onTap: () => _navKey.currentState?.popUntil((r) => r.isFirst),
+              )
             : null,
       ),
     );

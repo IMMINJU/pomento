@@ -9,7 +9,7 @@ import 'eq_editor_screen.dart';
 import 'home_shell.dart';
 import 'presets_screen.dart';
 import 'theme.dart';
-import 'widgets/artwork.dart';
+import 'widgets/paper.dart';
 import 'widgets/screen_header.dart';
 import 'widgets/settings_list.dart';
 
@@ -51,15 +51,9 @@ class _EffectsScreenState extends ConsumerState<EffectsScreen> {
     final bottomInset = shellBottomInset(context, ref);
 
     return Scaffold(
-      backgroundColor: AppColors.bgBase,
-      body: Stack(
-        children: [
-          // 유리 뒤에 볼 것이 있어야 블러가 성립한다.
-          BlurredBackdrop(
-            track: ref.watch(playerControllerProvider).current,
-            topOverlay: 0.55,
-            bottomOverlay: 0.80,
-          ),
+      body: PaperBackground(
+        child: Stack(
+          children: [
           SafeArea(
             bottom: false,
             child: Column(
@@ -73,7 +67,7 @@ class _EffectsScreenState extends ConsumerState<EffectsScreen> {
                         icon: Icon(
                           _searching ? Icons.search_off : Icons.search,
                           size: 22,
-                          color: _searching ? AppColors.accent : AppColors.t2,
+                          color: _searching ? AppColors.cover : AppColors.ink2,
                         ),
                         onPressed: () => setState(() {
                           _searching = !_searching;
@@ -84,8 +78,8 @@ class _EffectsScreenState extends ConsumerState<EffectsScreen> {
                     // 더보기 안으로 넣었다.
                     PopupMenuButton<int>(
                       icon: const Icon(Icons.more_vert,
-                          size: 22, color: AppColors.t2),
-                      color: const Color(0xFF25252D),
+                          size: 22, color: AppColors.ink2),
+                      color: AppColors.paperHi,
                       onSelected: (v) async {
                         if (v == 0) {
                           await _saveDialog(context);
@@ -123,7 +117,7 @@ class _EffectsScreenState extends ConsumerState<EffectsScreen> {
                     state.summary,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: AppText.small,
+                    style: AppText.sub,
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -152,6 +146,7 @@ class _EffectsScreenState extends ConsumerState<EffectsScreen> {
             ),
           ),
         ],
+        ),
       ),
     );
   }
@@ -165,7 +160,8 @@ class _EffectsScreenState extends ConsumerState<EffectsScreen> {
     final name = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF14141C),
+        backgroundColor: AppColors.paperHi,
+        surfaceTintColor: Colors.transparent,
         title: const Text('취향 프리셋으로 저장', style: AppText.body),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -174,30 +170,32 @@ class _EffectsScreenState extends ConsumerState<EffectsScreen> {
               controller: textController,
               autofocus: true,
               style: AppText.body,
-              cursorColor: AppColors.accent,
+              cursorColor: AppColors.ink1,
               decoration: const InputDecoration(
                 hintText: '이름',
-                hintStyle: TextStyle(color: AppColors.t3),
+                hintStyle: TextStyle(color: AppColors.hair),
               ),
             ),
             const SizedBox(height: 12),
             const Text(
               '취향 층과 지금 배속이 함께 저장됩니다. '
               '기기 보정은 각자 폰에 남습니다.',
-              style: AppText.small,
+              style: AppText.sub,
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('취소', style: TextStyle(color: AppColors.t2)),
+            child: const Text('취소',
+                style: TextStyle(color: AppColors.ink3)),
           ),
           TextButton(
             onPressed: () =>
                 Navigator.pop(dialogContext, textController.text),
             child: const Text('저장',
-                style: TextStyle(color: AppColors.accent)),
+                style: TextStyle(
+                    color: AppColors.ink1, fontWeight: FontWeight.w600)),
           ),
         ],
       ),
@@ -274,12 +272,12 @@ class _PresetListTabState extends ConsumerState<_PresetListTab> {
                 child: TextField(
                   autofocus: true,
                   style: AppText.body,
-                  cursorColor: AppColors.accent,
+                  cursorColor: AppColors.ink1,
                   onChanged: widget.onQuery,
                   decoration: const InputDecoration(
                     isDense: true,
                     hintText: '프리셋 이름',
-                    hintStyle: TextStyle(color: AppColors.t3, fontSize: 15),
+                    hintStyle: TextStyle(color: AppColors.hair, fontSize: 16),
                     border: UnderlineInputBorder(),
                   ),
                 ),
@@ -308,7 +306,7 @@ class _PresetListTabState extends ConsumerState<_PresetListTab> {
                 padding: EdgeInsets.symmetric(horizontal: 20),
                 child: Text(
                   '저장해둔 것이 없습니다. 소리를 맞춘 뒤 위의 저장을 누르세요',
-                  style: AppText.small,
+                  style: AppText.sub,
                 ),
               )
             else
@@ -344,7 +342,7 @@ class _PresetRow extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 17),
         decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: AppColors.divider)),
+          border: Border(bottom: BorderSide(color: AppColors.line)),
         ),
         child: Row(
           children: [
@@ -356,7 +354,7 @@ class _PresetRow extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                  color: selected ? AppColors.accent : AppColors.t1,
+                  color: selected ? AppColors.cover : AppColors.ink1,
                 ),
               ),
             ),
@@ -464,7 +462,7 @@ class _ExtrasTab extends ConsumerWidget {
               child: Text(
                 '지하철 보정이 저역을 깎는 것은 의도한 것입니다. 지하철 소음이 '
                 '저역이라 저역을 더 올리면 소음과 겹쳐 뭉갭니다.',
-                style: AppText.caption,
+                style: AppText.sub,
               ),
             ),
           ],
@@ -542,7 +540,7 @@ class _SliderRow extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 6),
       decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppColors.divider)),
+        border: Border(bottom: BorderSide(color: AppColors.line)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -558,12 +556,12 @@ class _SliderRow extends StatelessWidget {
                       style: const TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.t1,
+                        color: AppColors.ink1,
                       ),
                     ),
                     if (description != null) ...[
                       const SizedBox(height: 4),
-                      Text(description!, style: AppText.caption),
+                      Text(description!, style: AppText.sub),
                     ],
                   ],
                 ),
@@ -574,7 +572,7 @@ class _SliderRow extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.accent,
+                  color: AppColors.cover,
                   fontFeatures: tabularFigures,
                 ),
               ),
@@ -615,10 +613,10 @@ class _Chip extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
           decoration: BoxDecoration(
-            color: selected ? AppColors.accent : Colors.transparent,
+            color: selected ? AppColors.cover : Colors.transparent,
             borderRadius: BorderRadius.circular(AppRadius.pill),
             border: Border.all(
-              color: selected ? AppColors.accent : AppColors.glassBorder,
+              color: selected ? AppColors.cover : AppColors.line,
             ),
           ),
           child: Text(
@@ -626,7 +624,7 @@ class _Chip extends StatelessWidget {
             style: TextStyle(
               fontSize: 13,
               fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-              color: selected ? AppColors.bgBase : AppColors.t2,
+              color: selected ? AppColors.paper : AppColors.ink2,
             ),
           ),
         ),
@@ -648,7 +646,7 @@ class _ShareTab extends ConsumerWidget {
         const Text(
           '취향 층만 주고받습니다. 기기 보정은 각자 폰에 남아서, '
           '상대가 좋다고 한 소리가 내 이어폰에서도 좋게 들립니다.',
-          style: AppText.small,
+          style: AppText.sub,
         ),
         const SizedBox(height: 16),
         _RowButton(
@@ -690,29 +688,32 @@ class _ShareTab extends ConsumerWidget {
     final text = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF14141C),
+        backgroundColor: AppColors.paperHi,
+        surfaceTintColor: Colors.transparent,
         title: const Text('프리셋 가져오기', style: AppText.body),
         content: TextField(
           controller: textController,
           autofocus: true,
           maxLines: 6,
-          style: AppText.caption,
-          cursorColor: AppColors.accent,
+          style: AppText.sub,
+          cursorColor: AppColors.ink1,
           decoration: const InputDecoration(
             hintText: 'JSON 붙여넣기',
-            hintStyle: TextStyle(color: AppColors.t3),
+            hintStyle: TextStyle(color: AppColors.hair),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('취소', style: TextStyle(color: AppColors.t2)),
+            child: const Text('취소',
+                style: TextStyle(color: AppColors.ink3)),
           ),
           TextButton(
             onPressed: () =>
                 Navigator.pop(dialogContext, textController.text),
             child: const Text('가져오기',
-                style: TextStyle(color: AppColors.accent)),
+                style: TextStyle(
+                    color: AppColors.ink1, fontWeight: FontWeight.w600)),
           ),
         ],
       ),
@@ -760,13 +761,13 @@ class _RowButton extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
           decoration: BoxDecoration(
-            color: AppColors.glass,
+            color: AppColors.paperLo,
             borderRadius: BorderRadius.circular(AppRadius.card),
-            border: Border.all(color: AppColors.glassBorder),
+            border: Border.all(color: AppColors.line),
           ),
           child: Row(
             children: [
-              Icon(icon, size: 20, color: AppColors.t2),
+              Icon(icon, size: 20, color: AppColors.ink2),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -774,13 +775,13 @@ class _RowButton extends StatelessWidget {
                   children: [
                     Text(label,
                         style: const TextStyle(
-                            fontSize: 15, color: AppColors.t1)),
+                            fontSize: 15, color: AppColors.ink1)),
                     const SizedBox(height: 2),
-                    Text(sub, style: AppText.small),
+                    Text(sub, style: AppText.sub),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, size: 20, color: AppColors.t3),
+              const Icon(Icons.chevron_right, size: 20, color: AppColors.ink3),
             ],
           ),
         ),
@@ -809,7 +810,7 @@ class _EffectTabs extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppColors.divider)),
+        border: Border(bottom: BorderSide(color: AppColors.line)),
       ),
       child: Row(
         children: [
@@ -835,7 +836,7 @@ class _EffectTabs extends StatelessWidget {
                       Icon(
                         _tabs[i].icon,
                         size: 17,
-                        color: i == index ? AppColors.t1 : AppColors.t3,
+                        color: i == index ? AppColors.ink1 : AppColors.ink3,
                       ),
                       const SizedBox(width: 6),
                       Flexible(
@@ -848,7 +849,7 @@ class _EffectTabs extends StatelessWidget {
                             fontWeight: i == index
                                 ? FontWeight.w600
                                 : FontWeight.w400,
-                            color: i == index ? AppColors.t1 : AppColors.t3,
+                            color: i == index ? AppColors.ink1 : AppColors.ink3,
                           ),
                         ),
                       ),
@@ -882,16 +883,16 @@ class _FilterPill extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
         decoration: BoxDecoration(
-          color: selected ? AppColors.accent : Colors.transparent,
+          color: selected ? AppColors.cover : Colors.transparent,
           borderRadius: BorderRadius.circular(AppRadius.pill),
-          border: Border.all(color: AppColors.accent),
+          border: Border.all(color: AppColors.cover),
         ),
         child: Text(
           label,
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
-            color: selected ? AppColors.bgBase : AppColors.accent,
+            color: selected ? AppColors.paper : AppColors.cover,
           ),
         ),
       ),

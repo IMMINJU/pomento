@@ -31,6 +31,7 @@ class ConfigurableGestureLayer extends StatefulWidget {
     required this.child,
     required this.onAction,
     required this.onDrag,
+    this.onSwipe,
   });
 
   final GestureSettings settings;
@@ -41,6 +42,13 @@ class ConfigurableGestureLayer extends StatefulWidget {
 
   /// 이어 끌기. 손을 뗄 때 done이 참인 값이 한 번 더 온다.
   final void Function(DragProgress progress) onDrag;
+
+  /// 가로 쓸기가 진행되는 동안 부른다.
+  ///
+  /// `dx`는 시작점에서 온 거리, `done`은 손을 뗐는지, `committed`는 문턱을
+  /// 넘어 실제로 곡이 넘어가는지다. 넘지 못했으면 화면이 제자리로 돌아와야
+  /// 한다.
+  final void Function(double dx, bool done, bool committed)? onSwipe;
 
   @override
   State<ConfigurableGestureLayer> createState() =>
@@ -58,6 +66,9 @@ class _ConfigurableGestureLayerState extends State<ConfigurableGestureLayer> {
 
   /// 쓸기로 볼 최소 이동 거리.
   static const double _swipeThreshold = 70;
+
+  /// 가로 쓸기가 진행 중인지. 화면이 손가락을 따라오게 하려고 알려준다.
+  bool _swiping = false;
 
   GestureZone _zoneOf(double dx, double width) {
     if (dx < width / 3) return GestureZone.left;
@@ -104,7 +115,15 @@ class _ConfigurableGestureLayerState extends State<ConfigurableGestureLayer> {
           _axis = total.dx.abs() > total.dy.abs() ? Axis.horizontal : Axis.vertical;
           _dragAction = _dragActionFor(_axis!);
         }
-        if (_dragAction == DragAction.none) return;
+        // 끌기가 안 걸린 가로축이면 쓸기다. 손가락을 따라오는 연출을 하려면
+        // 손을 떼기 전에도 얼마나 왔는지 알려줘야 한다
+        if (_dragAction == DragAction.none) {
+          if (_axis == Axis.horizontal && widget.settings.horizontalSwipe) {
+            _swiping = true;
+            widget.onSwipe?.call(total.dx, false, false);
+          }
+          return;
+        }
 
         widget.onDrag(
           DragProgress(
@@ -128,7 +147,12 @@ class _ConfigurableGestureLayerState extends State<ConfigurableGestureLayer> {
 
         // 끌기가 안 걸린 축이면 쓸기로 본다.
         if (axis == Axis.horizontal && g.horizontalSwipe) {
-          if (total.dx.abs() < _swipeThreshold) return;
+          final passed = total.dx.abs() >= _swipeThreshold;
+          if (_swiping) {
+            _swiping = false;
+            widget.onSwipe?.call(total.dx, true, passed);
+          }
+          if (!passed) return;
           final action = total.dx > 0 ? g.swipeFromLeft : g.swipeFromRight;
           if (action != GestureAction.none) widget.onAction(action);
         } else if (axis == Axis.vertical && g.verticalSwipe) {

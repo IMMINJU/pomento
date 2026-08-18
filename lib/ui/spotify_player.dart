@@ -14,13 +14,21 @@ import '../providers.dart';
 import 'home_shell.dart';
 import 'player_screen.dart';
 import 'theme.dart';
+import 'widgets/paper.dart';
+import 'widgets/player_parts.dart';
 import 'widgets/common.dart';
 import 'widgets/gesture_layer.dart';
-import 'widgets/glass.dart';
+import 'widgets/ambient_plate.dart';
+import 'widgets/artwork_tone.dart';
+import 'widgets/jump_button.dart';
+import 'widgets/marquee_text.dart';
+import 'widgets/surface.dart';
 
 /// Spotify 자켓. App Remote가 이미지 데이터를 직접 준다.
-final spotifyImageProvider =
-    FutureProvider.family<Uint8List?, String>((ref, imageId) async {
+final spotifyImageProvider = FutureProvider.family<Uint8List?, String>((
+  ref,
+  imageId,
+) async {
   if (imageId.isEmpty) return null;
   try {
     return await SpotifySdk.getImage(
@@ -139,76 +147,99 @@ class _SpotifyPlayerViewState extends ConsumerState<SpotifyPlayerView> {
       artist: s.artistName ?? '',
     );
 
-    return Scaffold(
-      backgroundColor: AppColors.bgBase,
-      body: SafeArea(
-        bottom: false,
-        child: ConfigurableGestureLayer(
-          settings: settings.gestures,
-          onAction: _run,
-          onDrag: _drag,
-          child: Column(
-            children: [
-              _topBar(context, panelOpen),
-              Expanded(
-                child: LayoutBuilder(
-                  builder: (context, box) {
-                    final size = math.min(box.maxWidth - 40, box.maxHeight - 8);
-                    if (size < 96) return const SizedBox.shrink();
-                    return Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 280),
-                          switchInCurve: Curves.easeOutCubic,
-                          switchOutCurve: Curves.easeInCubic,
-                          transitionBuilder: (child, animation) {
-                            final incoming =
-                                (child.key as ValueKey<String>?)?.value ==
-                                    (s.trackUri ?? '');
-                            final from = incoming ? _slideDir : -_slideDir;
-                            return SlideTransition(
-                              position: Tween<Offset>(
-                                begin: Offset(from * 0.3, 0),
-                                end: Offset.zero,
-                              ).animate(animation),
-                              child: FadeTransition(
-                                opacity: animation,
-                                child: child,
-                              ),
-                            );
-                          },
-                          child: _artwork(
-                            key: ValueKey<String>(s.trackUri ?? ''),
-                            imageId: s.imageId ?? '',
-                            size: size,
-                          ),
-                        ),
-                        if (panelOpen)
-                          Positioned(
-                            left: 4,
-                            right: 4,
-                            bottom: 4,
-                            child: _ControlPanel(
-                              state: s,
-                              session: _session,
-                              short: settings.seekShortSeconds,
-                              long: settings.seekLongSeconds,
+    // Spotify 자켓은 파일이 아니라 바이트로 온다
+    final art = ref.watch(spotifyImageProvider(s.imageId ?? '')).value;
+    final tone =
+        ref
+            .watch(coverToneOfBytesProvider((key: s.imageId ?? '', bytes: art)))
+            .value ??
+        CoverTone.fallback;
+
+    return CoverScope(
+      tone: tone,
+      child: Scaffold(
+        body: PaperBackground(
+          child: SafeArea(
+            bottom: false,
+            child: ConfigurableGestureLayer(
+              settings: settings.gestures,
+              onAction: _run,
+              onDrag: _drag,
+              child: Column(
+                children: [
+                  _topBar(context, panelOpen),
+                  Expanded(
+                    child: LayoutBuilder(
+                      builder: (context, box) {
+                        final size = math.min(
+                          box.maxWidth - 68,
+                          box.maxHeight - 56,
+                        );
+                        if (size < 96) return const SizedBox.shrink();
+                        return AmbientPlate(
+                          tone: tone,
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 280),
+                            switchInCurve: Curves.easeOutCubic,
+                            switchOutCurve: Curves.easeInCubic,
+                            transitionBuilder: (child, animation) {
+                              final incoming =
+                                  (child.key as ValueKey<String>?)?.value ==
+                                  (s.trackUri ?? '');
+                              final from = incoming ? _slideDir : -_slideDir;
+                              return SlideTransition(
+                                position: Tween<Offset>(
+                                  begin: Offset(from * 0.3, 0),
+                                  end: Offset.zero,
+                                ).animate(animation),
+                                child: FadeTransition(
+                                  opacity: animation,
+                                  child: child,
+                                ),
+                              );
+                            },
+                            child: ArtPlate(
+                              key: ValueKey<String>(s.trackUri ?? ''),
+                              size: size,
+                              child: _artwork(image: art, size: size),
                             ),
                           ),
-                      ],
-                    );
-                  },
-                ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  _titleRow(s),
+                  const SizedBox(height: 20),
+                  _progress(s),
+                  // 패널을 자켓 위에 얹지 않는다. 불투명한 카드라 자켓을 덮는다
+                  ClipRect(
+                    child: AnimatedSize(
+                      duration: const Duration(milliseconds: 260),
+                      curve: Curves.easeOutCubic,
+                      alignment: Alignment.topCenter,
+                      child: panelOpen
+                          ? Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const SizedBox(height: 16),
+                                _ControlPanel(
+                                  state: s,
+                                  session: _session,
+                                  short: settings.seekShortSeconds,
+                                  long: settings.seekLongSeconds,
+                                ),
+                              ],
+                            )
+                          : const SizedBox(width: double.infinity),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  _transport(s, match),
+                  SizedBox(height: bottomInset + 20),
+                ],
               ),
-              const SizedBox(height: 14),
-              _titleRow(s),
-              const SizedBox(height: 12),
-              _progress(s),
-              const SizedBox(height: 16),
-              _transport(s, match),
-              SizedBox(height: bottomInset + 8),
-            ],
+            ),
           ),
         ),
       ),
@@ -216,106 +247,58 @@ class _SpotifyPlayerViewState extends ConsumerState<SpotifyPlayerView> {
   }
 
   Widget _topBar(BuildContext context, bool panelOpen) {
-    return SizedBox(
-      height: 60,
-      child: Padding(
+    return PlayerTopBar(
+      // Spotify 초록을 쓰지 않는다. 이 화면에서 색은 재생 상태를 말하는 데
+      // 쓰고 있어서, 출처까지 색으로 말하면 둘이 섞인다. 우리 처리가 꺼져
+      // 있다는 것은 패널의 글자가 적어준다
+      leading: Container(
+        height: 40,
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Row(
-          children: [
-            Container(
-              height: 40,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: const Color(0xFF1DB954).withValues(alpha: 0.18),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: const Color(0xFF1DB954).withValues(alpha: 0.5),
-                ),
-              ),
-              child: const Text(
-                'Spotify',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF1DB954),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            _RoundIcon(
-              icon: Icons.compare_arrows,
-              filled: panelOpen,
-              onTap: () =>
-                  ref.read(controlPanelOpenProvider.notifier).state = !panelOpen,
-            ),
-            const Spacer(),
-            _RoundIcon(
-              icon: Icons.search,
-              onTap: () => openSearchScreen(context),
-            ),
-            const SizedBox(width: 8),
-            _RoundIcon(
-              icon: Icons.settings,
-              onTap: () => openSettingsScreen(context),
-            ),
-          ],
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: AppColors.paperLo,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          'Spotify',
+          style: AppText.body.copyWith(fontSize: 14, color: AppColors.ink2),
         ),
       ),
+      panelOpen: panelOpen,
+      onTogglePanel: () =>
+          ref.read(controlPanelOpenProvider.notifier).state = !panelOpen,
+      onSearch: () => openSearchScreen(context),
+      onSettings: () => openSettingsScreen(context),
     );
   }
 
-  Widget _artwork({
-    required Key key,
-    required String imageId,
-    required double size,
-  }) {
-    final image = ref.watch(spotifyImageProvider(imageId)).value;
-    return ClipRRect(
-      key: key,
-      borderRadius: BorderRadius.circular(20),
-      child: image == null
-          ? Container(
-              width: size,
-              height: size,
-              color: AppColors.glass,
-              child:
-                  const Icon(Icons.music_note, size: 48, color: AppColors.t3),
-            )
-          : Image.memory(
-              image,
-              width: size,
-              height: size,
-              fit: BoxFit.cover,
-              gaplessPlayback: true,
-            ),
+  Widget _artwork({required Uint8List? image, required double size}) {
+    if (image == null) {
+      return Container(
+        width: size,
+        height: size,
+        color: AppColors.paperLo,
+        child: const Icon(Icons.music_note, size: 44, color: AppColors.hair),
+      );
+    }
+    return Image.memory(
+      image,
+      width: size,
+      height: size,
+      fit: BoxFit.cover,
+      gaplessPlayback: true,
     );
   }
 
   Widget _titleRow(SpotifyState s) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpace.gutter),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            s.trackName ?? '',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: AppText.display,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            s.artistName ?? '',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 15,
-              height: 20 / 15,
-              fontWeight: FontWeight.w600,
-              color: AppColors.accent,
-            ),
-          ),
+          MarqueeText(text: s.trackName ?? '', style: AppText.title),
+          const SizedBox(height: 6),
+          LinkText(text: s.artistName ?? ''),
         ],
       ),
     );
@@ -323,7 +306,7 @@ class _SpotifyPlayerViewState extends ConsumerState<SpotifyPlayerView> {
 
   Widget _progress(SpotifyState s) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpace.gutter),
       child: Column(
         children: [
           ThinProgressBar(
@@ -332,104 +315,58 @@ class _SpotifyPlayerViewState extends ConsumerState<SpotifyPlayerView> {
               Duration(milliseconds: (s.duration.inMilliseconds * p).round()),
             ),
           ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              Text(
-                formatDuration(s.position),
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.accent,
-                  fontFeatures: tabularFigures,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                formatDuration(s.duration),
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.t1,
-                  fontFeatures: tabularFigures,
-                ),
-              ),
-            ],
-          ),
+          const SizedBox(height: 2),
+          TimeRow(position: s.position, total: s.duration),
         ],
       ),
     );
   }
 
   Widget _transport(SpotifyState s, TrackMatch<Track>? match) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          _RoundIcon(
-            icon: Icons.folder_outlined,
-            filled: true,
-            onTap: () => openLibraryScreen(context),
+    return TransportRow(
+      playing: !s.paused,
+      onToggle: _session.togglePlay,
+      onPrevious: () {
+        setState(() => _slideDir = -1);
+        _session.previous();
+      },
+      onNext: () {
+        setState(() => _slideDir = 1);
+        _session.next();
+      },
+      leading: RoundButton(
+        onTap: () => openLibraryScreen(context),
+        child: const Icon(
+          Icons.folder_outlined,
+          size: 20,
+          color: AppColors.ink2,
+        ),
+      ),
+      // 같은 곡을 가지고 있으면 그쪽으로 넘어간다. 없으면 자리만 지킨다
+      trailing: Opacity(
+        opacity: match == null ? 0.35 : 1,
+        child: RoundButton(
+          onTap: () {
+            if (match == null) return;
+            ref.read(playerControllerProvider.notifier).playQueue([
+              match.track,
+            ], 0);
+          },
+          child: Icon(
+            Icons.swap_horiz,
+            size: 20,
+            color: match == null ? AppColors.hair : AppColors.ink2,
           ),
-          IconButton(
-            iconSize: 30,
-            icon: const Icon(Icons.skip_previous, color: AppColors.t1),
-            onPressed: () {
-              setState(() => _slideDir = -1);
-              _session.previous();
-            },
-          ),
-          GestureDetector(
-            onTap: _session.togglePlay,
-            child: Container(
-              width: 68,
-              height: 68,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.14),
-                border:
-                    Border.all(color: Colors.white.withValues(alpha: 0.24)),
-              ),
-              child: Icon(
-                s.paused ? Icons.play_arrow : Icons.pause,
-                size: 30,
-                color: AppColors.t1,
-              ),
-            ),
-          ),
-          IconButton(
-            iconSize: 30,
-            icon: const Icon(Icons.skip_next, color: AppColors.t1),
-            onPressed: () {
-              setState(() => _slideDir = 1);
-              _session.next();
-            },
-          ),
-          // 같은 곡을 가지고 있으면 그쪽으로 넘어간다. 없으면 자리만 지킨다.
-          Opacity(
-            opacity: match == null ? 0.3 : 1,
-            child: _RoundIcon(
-              icon: Icons.swap_horiz,
-              filled: match != null,
-              onTap: () {
-                if (match == null) return;
-                _session.togglePlay();
-                ref
-                    .read(playerControllerProvider.notifier)
-                    .playQueue([match.track], 0);
-                ref.read(activeSourceProvider.notifier).state =
-                    PlaybackSource.local;
-              },
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 }
 
-/// 자켓 위에 얹는 컨트롤. Spotify에서는 탐색과 구간 반복만 된다.
+/// Spotify에서는 탐색과 구간 반복만 된다.
+///
+/// 배속과 3층 보정은 여기에 없다. App Remote는 기기에 깔린 Spotify 앱을
+/// 원격 조종하는 방식이라 오디오가 우리 프로세스를 지나지 않는다.
 class _ControlPanel extends StatelessWidget {
   const _ControlPanel({
     required this.state,
@@ -446,191 +383,60 @@ class _ControlPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final looping = state.loopA != null || state.loopB != null;
-
-    return GlassSurface(
-      radius: AppRadius.panel,
-      blur: AppBlur.sheet,
-      opacity: 0.20,
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _JumpButton(
-                seconds: long,
-                back: true,
-                onTap: () => session.seekBy(Duration(seconds: -long)),
-              ),
-              _JumpButton(
-                seconds: short,
-                back: true,
-                onTap: () => session.seekBy(Duration(seconds: -short)),
-              ),
-              GestureDetector(
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  if (state.loopA == null) {
-                    session.setLoopA();
-                  } else if (state.loopB == null) {
-                    session.setLoopB();
-                  } else {
-                    session.clearLoop();
-                  }
-                },
-                onLongPress: session.clearLoop,
-                child: Container(
-                  height: 44,
-                  padding: const EdgeInsets.symmetric(horizontal: 18),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: looping
-                        ? AppColors.accent
-                        : Colors.white.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(AppRadius.pill),
-                    border: Border.all(
-                      color: looping
-                          ? AppColors.accent
-                          : Colors.white.withValues(alpha: 0.28),
-                    ),
-                  ),
-                  child: Text(
-                    switch ((state.loopA, state.loopB)) {
-                      (null, _) => 'A - B',
-                      (final a?, null) => 'A ${formatDuration(a)}',
-                      (final a?, final b?) =>
-                        '${formatDuration(a)} - ${formatDuration(b)}',
-                    },
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: looping ? AppColors.bgBase : AppColors.t1,
-                      fontFeatures: tabularFigures,
-                    ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Sunken(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                JumpButton(
+                  seconds: long,
+                  back: true,
+                  onTap: () => session.seekBy(Duration(seconds: -long)),
+                ),
+                JumpButton(
+                  seconds: short,
+                  back: true,
+                  onTap: () => session.seekBy(Duration(seconds: -short)),
+                ),
+                Expanded(
+                  child: AbPill(
+                    loopA: state.loopA,
+                    loopB: state.loopB,
+                    onSetA: session.setLoopA,
+                    onSetB: session.setLoopB,
+                    onClear: session.clearLoop,
                   ),
                 ),
-              ),
-              _JumpButton(
-                seconds: short,
-                back: false,
-                onTap: () => session.seekBy(Duration(seconds: short)),
-              ),
-              _JumpButton(
-                seconds: long,
-                back: false,
-                onTap: () => session.seekBy(Duration(seconds: long)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            child: Text(
-              looping
-                  ? '구간 반복은 위치를 다시 보내는 방식이라 조금 어긋납니다'
-                  : '소리가 Spotify 앱에서 납니다. 배속 · 피치 · 음향 보정은 꺼져 있습니다',
-              textAlign: TextAlign.center,
-              style: AppText.small,
+                JumpButton(
+                  seconds: short,
+                  back: false,
+                  onTap: () => session.seekBy(Duration(seconds: short)),
+                ),
+                JumpButton(
+                  seconds: long,
+                  back: false,
+                  onTap: () => session.seekBy(Duration(seconds: long)),
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// 점프 탐색 버튼. 재생 화면과 같은 모양이다.
-class _JumpButton extends StatelessWidget {
-  const _JumpButton({
-    required this.seconds,
-    required this.back,
-    required this.onTap,
-  });
-
-  final int seconds;
-  final bool back;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final circle = Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
-      ),
-      child: Icon(
-        back
-            ? (seconds >= 10
-                ? Icons.keyboard_double_arrow_left
-                : Icons.keyboard_arrow_left)
-            : (seconds >= 10
-                ? Icons.keyboard_double_arrow_right
-                : Icons.keyboard_arrow_right),
-        size: 20,
-        color: AppColors.t1,
-      ),
-    );
-    final text = Text(
-      '$seconds"',
-      style: const TextStyle(
-        fontSize: 13,
-        fontWeight: FontWeight.w500,
-        color: AppColors.t1,
-        fontFeatures: tabularFigures,
-      ),
-    );
-
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () {
-        HapticFeedback.selectionClick();
-        onTap();
-      },
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: back
-            ? [circle, const SizedBox(width: 4), text]
-            : [text, const SizedBox(width: 4), circle],
-      ),
-    );
-  }
-}
-
-class _RoundIcon extends StatelessWidget {
-  const _RoundIcon({
-    required this.icon,
-    required this.onTap,
-    this.filled = false,
-  });
-
-  final IconData icon;
-  final VoidCallback onTap;
-  final bool filled;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color:
-              filled ? AppColors.accent : Colors.black.withValues(alpha: 0.35),
-          border: Border.all(
-            color: filled
-                ? AppColors.accent
-                : Colors.white.withValues(alpha: 0.24),
-          ),
-        ),
-        child: Icon(
-          icon,
-          size: 20,
-          color: filled ? AppColors.bgBase : AppColors.t1,
+            const SizedBox(height: 10),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: Text(
+                looping
+                    ? '구간 반복은 위치를 다시 보내는 방식이라 조금 어긋납니다'
+                    : '소리가 Spotify 앱에서 납니다. 배속 · 피치 · 음향 보정은 '
+                          '꺼져 있습니다',
+                textAlign: TextAlign.center,
+                style: AppText.sub,
+              ),
+            ),
+          ],
         ),
       ),
     );

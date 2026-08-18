@@ -5,9 +5,9 @@ import '../data/models/tempo.dart';
 import '../providers.dart';
 import 'home_shell.dart';
 import 'theme.dart';
-import 'widgets/artwork.dart';
 import 'widgets/common.dart';
-import 'widgets/glass.dart';
+import 'widgets/paper.dart';
+import 'widgets/surface.dart';
 import 'widgets/practice_blocks.dart';
 import 'widgets/screen_header.dart';
 
@@ -36,19 +36,10 @@ class PracticeScreen extends ConsumerWidget {
     final isLinked = tempo.mode == TempoMode.linked;
 
     return Scaffold(
-      backgroundColor: AppColors.bgBase,
-      body: Stack(
-        children: [
-          // 유리 뒤에 볼 것이 있어야 블러가 성립한다. 재생 화면과 같은
-          // 앨범아트를 깔아 두 화면이 이어져 보이게 한다.
-          BlurredBackdrop(
-            track: state.current,
-            topOverlay: 0.55,
-            bottomOverlay: 0.80,
-          ),
-          SafeArea(
-            bottom: false,
-            child: Column(
+      body: PaperBackground(
+        child: SafeArea(
+          bottom: false,
+          child: Column(
         children: [
           ScreenHeader(
             title: '연습',
@@ -66,31 +57,29 @@ class PracticeScreen extends ConsumerWidget {
           Expanded(
             child: ListView(
               padding: EdgeInsets.fromLTRB(
-                20,
+                AppSpace.gutter,
                 0,
-                20,
+                AppSpace.gutter,
                 MediaQuery.of(context).viewInsets.bottom +
                     shellBottomInset(context, ref) +
                     24,
               ),
               children: [
-                Center(
-                  child: GlassSegment(
-                    labels: [
-                      TempoMode.linked.label,
-                      TempoMode.independent.label,
-                    ],
-                    selectedIndex: isLinked ? 0 : 1,
-                    onSelect: (i) => controller.setTempoMode(
-                      i == 0 ? TempoMode.linked : TempoMode.independent,
-                    ),
+                SegmentBar(
+                  labels: [
+                    TempoMode.linked.label,
+                    TempoMode.independent.label,
+                  ],
+                  index: isLinked ? 0 : 1,
+                  onChanged: (i) => controller.setTempoMode(
+                    i == 0 ? TempoMode.linked : TempoMode.independent,
                   ),
                 ),
                 const SizedBox(height: 6),
                 Text(
                   tempo.mode.hint,
                   textAlign: TextAlign.center,
-                  style: AppText.small,
+                  style: AppText.sub,
                 ),
                 const SizedBox(height: 20),
 
@@ -101,18 +90,14 @@ class PracticeScreen extends ConsumerWidget {
                   onRangeChange: (r) =>
                       ref.read(settingsProvider.notifier).setSpeedRange(r),
                 ),
-                const SizedBox(height: 20),
-                const Divider(color: AppColors.divider, height: 1),
-                const SizedBox(height: 20),
+                const SizedBox(height: 34),
 
                 PitchBlock(
                   tempo: tempo,
                   settings: settings,
                   controller: controller,
                 ),
-                const SizedBox(height: 20),
-                const Divider(color: AppColors.divider, height: 1),
-                const SizedBox(height: 16),
+                const SizedBox(height: 34),
 
                 const SectionLabel('구간 반복'),
                 const SizedBox(height: 10),
@@ -134,16 +119,15 @@ class PracticeScreen extends ConsumerWidget {
                     '재생 화면에서 두 손가락을 위아래로 끌면 속도, 좌우로 끌면 '
                     '피치가 움직입니다. 두 손가락으로 두 번 두드리면 연동과 고정이 '
                     '바뀝니다.',
-                    style: AppText.small,
+                    style: AppText.sub,
                   ),
                 ],
               ],
             ),
           ),
         ],
-            ),
           ),
-        ],
+        ),
       ),
     );
   }

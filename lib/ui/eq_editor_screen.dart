@@ -7,9 +7,9 @@ import '../data/models/eq_curve.dart';
 import '../providers.dart';
 import 'home_shell.dart';
 import 'theme.dart';
-import 'widgets/artwork.dart';
 import 'widgets/eq_graph.dart';
-import 'widgets/glass.dart';
+import 'widgets/surface.dart';
+import 'widgets/paper.dart';
 import 'widgets/screen_header.dart';
 import 'widgets/stepper_field.dart';
 
@@ -79,14 +79,9 @@ class _EqEditorScreenState extends ConsumerState<EqEditorScreen> {
     final point = points[index];
 
     return Scaffold(
-      backgroundColor: AppColors.bgBase,
-      body: Stack(
-        children: [
-          BlurredBackdrop(
-            track: ref.watch(playerControllerProvider).current,
-            topOverlay: 0.55,
-            bottomOverlay: 0.80,
-          ),
+      body: PaperBackground(
+        child: Stack(
+          children: [
           SafeArea(
             bottom: false,
             child: Column(
@@ -217,6 +212,7 @@ class _EqEditorScreenState extends ConsumerState<EqEditorScreen> {
             ),
           ),
         ],
+        ),
       ),
     );
   }
@@ -307,13 +303,13 @@ class _BandTabs extends StatelessWidget {
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
                       color: on
-                          ? AppColors.accent.withValues(alpha: 0.18)
-                          : AppColors.glass,
+                          ? AppColors.cover.withValues(alpha: 0.18)
+                          : AppColors.paperLo,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: on
-                            ? AppColors.accent.withValues(alpha: 0.5)
-                            : AppColors.glassBorder,
+                            ? AppColors.cover.withValues(alpha: 0.5)
+                            : AppColors.line,
                       ),
                     ),
                     child: Column(
@@ -326,8 +322,8 @@ class _BandTabs extends StatelessWidget {
                             fontWeight:
                                 touched ? FontWeight.w700 : FontWeight.w400,
                             color: on
-                                ? AppColors.accent
-                                : (touched ? AppColors.t1 : AppColors.t3),
+                                ? AppColors.cover
+                                : (touched ? AppColors.ink1 : AppColors.ink3),
                             fontFeatures: tabularFigures,
                           ),
                         ),
@@ -337,7 +333,7 @@ class _BandTabs extends StatelessWidget {
                           height: 2,
                           margin: const EdgeInsets.only(top: 2),
                           color: bell
-                              ? (on ? AppColors.accent : AppColors.t2)
+                              ? (on ? AppColors.cover : AppColors.ink2)
                               : Colors.transparent,
                         ),
                       ],
@@ -374,10 +370,10 @@ class _MiniButton extends StatelessWidget {
           height: 36,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: AppColors.glass,
-            border: Border.all(color: AppColors.glassBorder),
+            color: AppColors.paperLo,
+            border: Border.all(color: AppColors.line),
           ),
-          child: Icon(icon, size: 18, color: AppColors.t1),
+          child: Icon(icon, size: 18, color: AppColors.ink1),
         ),
       ),
     );
@@ -398,14 +394,14 @@ class _FreqPresets extends StatelessWidget {
       runSpacing: 6,
       children: [
         for (final f in _points)
-          GlassPill(
+          PaperPill(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             onTap: () => onPick(f),
             child: Text(
               f >= 1000
                   ? '${(f / 1000).toStringAsFixed(f % 1000 == 0 ? 0 : 1)}k'
                   : '${f.round()}',
-              style: const TextStyle(fontSize: 11, color: AppColors.t2),
+              style: const TextStyle(fontSize: 11, color: AppColors.ink2),
             ),
           ),
       ],

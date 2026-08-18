@@ -6,7 +6,7 @@ import '../../data/models/app_settings.dart';
 import '../../data/models/tempo.dart';
 import '../theme.dart';
 import 'common.dart';
-import 'glass.dart';
+import 'surface.dart';
 import 'stepper_field.dart';
 
 /// 배속·피치·구간반복·점프탐색을 그리는 조각들.
@@ -69,11 +69,12 @@ class SpeedBlockState extends State<SpeedBlock> {
       children: [
         StepperField(
           label: '속도',
-          subLabel: '${percent >= 0 ? '+' : ''}'
+          subLabel:
+              '${percent >= 0 ? '+' : ''}'
               '${percent.toStringAsFixed(1)}%'
               '${widget.tempo.mode == TempoMode.linked ? ' · '
-                  '${widget.tempo.impliedSemitones >= 0 ? '+' : ''}'
-                  '${widget.tempo.impliedSemitones.toStringAsFixed(2)} 반음' : ''}',
+                        '${widget.tempo.impliedSemitones >= 0 ? '+' : ''}'
+                        '${widget.tempo.impliedSemitones.toStringAsFixed(2)} 반음' : ''}',
           value: speed,
           min: range.min,
           max: range.max,
@@ -92,16 +93,18 @@ class SpeedBlockState extends State<SpeedBlock> {
         Row(
           children: [
             for (final r in SpeedRange.values) ...[
-              GlassPill(
+              PaperPill(
                 selected: r == range,
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 7),
+                  horizontal: 12,
+                  vertical: 7,
+                ),
                 onTap: () => widget.onRangeChange(r),
                 child: Text(
                   r.label,
                   style: TextStyle(
                     fontSize: 12,
-                    color: r == range ? AppColors.t1 : AppColors.t2,
+                    color: r == range ? AppColors.ink1 : AppColors.ink2,
                   ),
                 ),
               ),
@@ -150,11 +153,11 @@ class _NudgeButton extends StatelessWidget {
         width: 44,
         height: 34,
         decoration: BoxDecoration(
-          color: AppColors.glass,
+          color: AppColors.paperLo,
           borderRadius: BorderRadius.circular(AppRadius.pill),
-          border: Border.all(color: AppColors.glassBorder),
+          border: Border.all(color: AppColors.line),
         ),
-        child: Icon(icon, size: 18, color: AppColors.t1),
+        child: Icon(icon, size: 18, color: AppColors.ink1),
       ),
     );
   }
@@ -194,7 +197,7 @@ class PitchBlock extends StatelessWidget {
           subLabel: isLinked
               ? '고정 모드에서 조절할 수 있습니다'
               : '${semitones >= 0 ? '+' : ''}'
-                  '${semitones.toStringAsFixed(2)} 반음',
+                    '${semitones.toStringAsFixed(2)} 반음',
           value: tempo.pitchCents,
           // ±2반음. 피치시프트 필터는 이보다 멀어지면 잡음이 두드러진다.
           min: -200,
@@ -210,27 +213,37 @@ class PitchBlock extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         Opacity(
-          opacity: isLinked ? 0.35 : 1,
-          child: IgnorePointer(
-            ignoring: isLinked,
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final t in _tunings)
-                  GlassPill(
-                    selected: (tempo.pitchCents - t.cents).abs() < 0.5,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 11, vertical: 7),
-                    onTap: () =>
-                        controller.setPitchCents(t.cents, commit: true),
-                    child: Text(
-                      t.label,
-                      style: const TextStyle(
-                          fontSize: 12, color: AppColors.t2),
+          opacity: isLinked ? 0.4 : 1,
+          // 잠긴 채로 두면 왜 안 되는지 알 길이 없다. 누르면 고정으로 바꾼다
+          child: GestureDetector(
+            onTap: isLinked
+                ? () => controller.setTempoMode(TempoMode.independent)
+                : null,
+            child: IgnorePointer(
+              ignoring: isLinked,
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final t in _tunings)
+                    PaperPill(
+                      selected: (tempo.pitchCents - t.cents).abs() < 0.5,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 11,
+                        vertical: 7,
+                      ),
+                      onTap: () =>
+                          controller.setPitchCents(t.cents, commit: true),
+                      child: Text(
+                        t.label,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.ink2,
+                        ),
+                      ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -360,7 +373,7 @@ class _LoopTimeline extends StatelessWidget {
                 Container(
                   height: 6,
                   decoration: BoxDecoration(
-                    color: AppColors.trackInactive,
+                    color: AppColors.paperLo,
                     borderRadius: BorderRadius.circular(AppRadius.pill),
                   ),
                 ),
@@ -371,15 +384,14 @@ class _LoopTimeline extends StatelessWidget {
                     child: Container(
                       height: 6,
                       decoration: BoxDecoration(
-                        color: AppColors.accent.withValues(alpha: 0.55),
-                        borderRadius:
-                            BorderRadius.circular(AppRadius.pill),
+                        color: AppColors.cover.withValues(alpha: 0.55),
+                        borderRadius: BorderRadius.circular(AppRadius.pill),
                       ),
                     ),
                   ),
                 Positioned(
                   left: (_frac(position) * w - 1).clamp(0.0, w - 2),
-                  child: Container(width: 2, height: 16, color: AppColors.t1),
+                  child: Container(width: 2, height: 16, color: AppColors.ink1),
                 ),
                 if (a != null) _marker('A', _frac(a!) * w, w),
                 if (b != null) _marker('B', _frac(b!) * w, w),
@@ -399,7 +411,7 @@ class _LoopTimeline extends StatelessWidget {
         height: 14,
         alignment: Alignment.center,
         decoration: const BoxDecoration(
-          color: AppColors.accent,
+          color: AppColors.cover,
           shape: BoxShape.circle,
         ),
         child: Text(
@@ -407,7 +419,7 @@ class _LoopTimeline extends StatelessWidget {
           style: const TextStyle(
             fontSize: 9,
             fontWeight: FontWeight.w700,
-            color: AppColors.bgBase,
+            color: AppColors.paper,
           ),
         ),
       ),
@@ -436,13 +448,13 @@ class _LoopButton extends StatelessWidget {
         height: 52,
         decoration: BoxDecoration(
           color: active
-              ? AppColors.accent.withValues(alpha: 0.16)
-              : AppColors.glass,
+              ? AppColors.cover.withValues(alpha: 0.16)
+              : AppColors.paperLo,
           borderRadius: BorderRadius.circular(AppRadius.card),
           border: Border.all(
             color: active
-                ? AppColors.accent.withValues(alpha: 0.55)
-                : AppColors.glassBorder,
+                ? AppColors.cover.withValues(alpha: 0.55)
+                : AppColors.line,
           ),
         ),
         child: Row(
@@ -453,7 +465,7 @@ class _LoopButton extends StatelessWidget {
               style: TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
-                color: active ? AppColors.accent : AppColors.t2,
+                color: active ? AppColors.cover : AppColors.ink2,
               ),
             ),
             const SizedBox(width: 10),
@@ -461,7 +473,7 @@ class _LoopButton extends StatelessWidget {
               time == null ? '지금 위치 찍기' : formatDuration(time!),
               style: TextStyle(
                 fontSize: time == null ? 13 : 16,
-                color: time == null ? AppColors.t3 : AppColors.t1,
+                color: time == null ? AppColors.ink3 : AppColors.ink1,
                 fontFeatures: tabularFigures,
               ),
             ),
@@ -494,17 +506,19 @@ class _SmallAction extends StatelessWidget {
         child: Container(
           height: 42,
           decoration: BoxDecoration(
-            color: AppColors.glass,
+            color: AppColors.paperLo,
             borderRadius: BorderRadius.circular(AppRadius.card),
-            border: Border.all(color: AppColors.glassBorder),
+            border: Border.all(color: AppColors.line),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 15, color: AppColors.t2),
+              Icon(icon, size: 15, color: AppColors.ink2),
               const SizedBox(width: 6),
-              Text(label,
-                  style: const TextStyle(fontSize: 14, color: AppColors.t2)),
+              Text(
+                label,
+                style: const TextStyle(fontSize: 14, color: AppColors.ink2),
+              ),
             ],
           ),
         ),
@@ -539,9 +553,9 @@ class JumpRow extends StatelessWidget {
               child: Container(
                 height: 46,
                 decoration: BoxDecoration(
-                  color: AppColors.glass,
+                  color: AppColors.paperLo,
                   borderRadius: BorderRadius.circular(AppRadius.card),
-                  border: Border.all(color: AppColors.glassBorder),
+                  border: Border.all(color: AppColors.line),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -549,14 +563,14 @@ class JumpRow extends StatelessWidget {
                     Icon(
                       jumps[i] < 0 ? Icons.rotate_left : Icons.rotate_right,
                       size: 15,
-                      color: AppColors.t2,
+                      color: AppColors.ink2,
                     ),
                     const SizedBox(width: 4),
                     Text(
                       '${jumps[i].abs()}',
                       style: const TextStyle(
                         fontSize: 15,
-                        color: AppColors.t1,
+                        color: AppColors.ink1,
                         fontFeatures: tabularFigures,
                       ),
                     ),
@@ -572,7 +586,11 @@ class JumpRow extends StatelessWidget {
 }
 
 class RememberRow extends StatelessWidget {
-  const RememberRow({super.key, required this.remember, required this.onChanged});
+  const RememberRow({
+    super.key,
+    required this.remember,
+    required this.onChanged,
+  });
 
   final bool remember;
   final ValueChanged<bool> onChanged;
@@ -583,22 +601,25 @@ class RememberRow extends StatelessWidget {
       height: 52,
       padding: const EdgeInsets.only(left: 14, right: 10),
       decoration: BoxDecoration(
-        color: AppColors.glass,
+        color: AppColors.paperLo,
         borderRadius: BorderRadius.circular(AppRadius.card),
-        border: Border.all(color: AppColors.glassBorder),
+        border: Border.all(color: AppColors.line),
       ),
       child: Row(
         children: [
-          const Icon(Icons.bookmark_added_outlined, size: 17,
-              color: AppColors.t2),
+          const Icon(
+            Icons.bookmark_added_outlined,
+            size: 17,
+            color: AppColors.ink2,
+          ),
           const SizedBox(width: 8),
           const Expanded(
             child: Text(
               '이 곡의 속도와 피치를 기억',
-              style: TextStyle(fontSize: 14, color: AppColors.t2),
+              style: TextStyle(fontSize: 14, color: AppColors.ink2),
             ),
           ),
-          GlassSwitch(value: remember, onChanged: onChanged),
+          PaperSwitch(value: remember, onChanged: onChanged),
         ],
       ),
     );

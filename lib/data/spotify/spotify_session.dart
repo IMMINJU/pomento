@@ -107,11 +107,19 @@ class SpotifySession extends StateNotifier<SpotifyState> {
   }
 
   static const _kClientId = 'spotify.clientId';
+
+  /// 전에 붙은 적이 있는지. 앱을 다시 켤 때 조용히 붙을지 정하는 값이다.
+  static const _kWasConnected = 'spotify.wasConnected';
+
   static const _search = 'https://api.spotify.com/v1/search';
 
   SharedPreferences? _prefs;
   StreamSubscription<sdk.PlayerState>? _playerSub;
   Timer? _ticker;
+
+  /// 소리를 내기 직전에 부른다. 로컬 재생이 돌고 있으면 여기서 멈춘다.
+  /// 연결은 providers.dart에서 한다.
+  void Function()? onWillPlay;
 
   Future<void> _loadClientId() async {
     final p = await SharedPreferences.getInstance();
@@ -124,6 +132,38 @@ class SpotifySession extends StateNotifier<SpotifyState> {
           ? saved.trim()
           : SpotifyConfig.buildTimeClientId,
     );
+    if (p.getBool(_kWasConnected) ?? false) await _reconnectQuietly();
+  }
+
+  /// 앱을 켤 때 조용히 다시 붙는다.
+  ///
+  /// App Remote 연결은 저장되는 값이 아니라 프로세스에 딸린 것이라, 앱을
+  /// 껐다 켜면 무조건 다시 붙어야 한다. 전에는 설정 화면에서 직접 눌러야
+  /// 붙었다.
+  ///
+  /// 인증이 필요한 상황에서는 시도하지 않는다. Spotify 앱이 앞으로 튀어나와
+  /// 동의 화면을 띄우면 앱을 켠 것만으로 화면이 가로채인다. 그건 매번 손으로
+  /// 누르는 것보다 나쁘다. 그래서 [SpotifySdk.getAccessToken]을 부르지 않고
+  /// 캐시된 토큰만으로 붙어본다.
+  ///
+  /// 실패하면 아무 말도 하지 않는다. 사용자가 부른 적 없는 일이라 오류를
+  /// 띄우면 뜬금없다.
+  Future<void> _reconnectQuietly() async {
+    if (!state.isConfigured || state.connecting || state.connected) return;
+    state = state.copyWith(connecting: true);
+    try {
+      final ok = await SpotifySdk.connectToSpotifyRemote(
+        clientId: state.clientId,
+        redirectUrl: SpotifyConfig.redirectUrl,
+        scope: SpotifyConfig.scope,
+      );
+      if (!mounted) return;
+      state = state.copyWith(connected: ok, connecting: false);
+      if (ok) _listen();
+    } catch (_) {
+      if (!mounted) return;
+      state = state.copyWith(connecting: false, connected: false);
+    }
   }
 
   void setClientId(String value) {
@@ -161,6 +201,8 @@ class SpotifySession extends StateNotifier<SpotifyState> {
         token: token,
         clearError: true,
       );
+      // 다음에 앱을 켤 때 조용히 붙을지 여기서 정해진다
+      _prefs?.setBool(_kWasConnected, ok);
       if (ok) _listen();
     } catch (e) {
       if (!mounted) return;
@@ -176,6 +218,9 @@ class SpotifySession extends StateNotifier<SpotifyState> {
     _playerSub?.cancel();
     _playerSub = null;
     _stopTicker();
+    // 사용자가 끊겠다고 한 것이므로 예외가 나도 기록은 지운다. try 안에
+    // 두면 이미 끊겨 있을 때 기록이 남아 다음에 또 붙는다
+    _prefs?.setBool(_kWasConnected, false);
     try {
       await SpotifySdk.disconnect();
     } catch (_) {
@@ -249,6 +294,7 @@ class SpotifySession extends StateNotifier<SpotifyState> {
     try {
       if (!state.connected) await connect();
       if (!state.connected) return;
+      onWillPlay?.call();
       await SpotifySdk.play(spotifyUri: spotifyUri);
       if (!mounted) return;
       state = state.copyWith(clearLoop: true, clearError: true);
@@ -258,9 +304,20 @@ class SpotifySession extends StateNotifier<SpotifyState> {
     }
   }
 
+  /// 조건 없이 멈춘다. 로컬 재생이 시작될 때 심판이 부른다.
+  /// togglePlay와 달리 onWillPlay를 부르지 않는다. 부르면 서로 되부른다.
+  Future<void> pauseNow() async {
+    try {
+      await SpotifySdk.pause();
+    } catch (_) {
+      // 이미 멈춰 있거나 App Remote가 끊긴 경우. 알릴 것이 없다
+    }
+  }
+
   Future<void> togglePlay() async {
     try {
       if (state.paused) {
+        onWillPlay?.call();
         await SpotifySdk.resume();
       } else {
         await SpotifySdk.pause();

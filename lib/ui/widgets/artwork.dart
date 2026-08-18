@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
@@ -20,39 +19,65 @@ String? artworkPathOf(Track? track) {
   return null;
 }
 
+/// 자켓이 없을 때 색과 글자를 만들 문자열.
+///
+/// 앨범을 쓰되 비어 있으면 제목을 쓴다. 같은 앨범의 곡들이 같은 자리표시자를
+/// 갖게 하려는 것이다. 강조색도 같은 씨앗에서 뽑아야 자켓과 색이 맞는다.
+String artworkSeedOf(Track? track) {
+  if (track == null) return '';
+  return track.album.isNotEmpty ? track.album : track.title;
+}
+
 /// 자켓이 없을 때 쓸 색. 제목에서 만들어 곡마다 다르게 나온다.
+///
+/// 종이 위에 놓이므로 예전처럼 어둡게 깔면 화면에서 혼자 튄다. 채도를
+/// 낮추고 밝기를 중간에 둔다.
 Color placeholderColorOf(String seed) {
   var hash = 0;
   for (final unit in seed.codeUnits) {
     hash = (hash * 31 + unit) & 0x7FFFFFFF;
   }
   final hue = (hash % 360).toDouble();
-  return HSLColor.fromAHSL(1, hue, 0.32, 0.28).toColor();
+  return HSLColor.fromAHSL(1, hue, 0.20, 0.52).toColor();
 }
 
+/// 앨범 자켓.
+///
+/// **자켓 위에는 아무것도 덮지 않는다.** 알갱이도 얼룩도 색면도 올리지
+/// 않는다. 태그와 자켓을 가져오는 시점에 복사해서 외부 앱의 영향을 안 받게
+/// 해놓고 그 위에 질감을 얹으면 앞뒤가 안 맞는다.
 class Artwork extends StatelessWidget {
   const Artwork({
     super.key,
-    required this.track,
+    this.track,
+    this.path,
+    this.seed,
     required this.size,
-    this.radius = 10,
+    this.radius = AppRadius.thumb,
   });
 
+  /// 곡에서 경로를 뽑는다. [path]를 직접 주면 이쪽이 무시된다.
   final Track? track;
+
+  /// 이미 정해진 자켓 경로.
+  final String? path;
+
+  /// 자켓이 없을 때 색과 글자를 만들 문자열.
+  final String? seed;
+
   final double size;
   final double radius;
 
   @override
   Widget build(BuildContext context) {
-    final path = artworkPathOf(track);
+    final resolved = path ?? artworkPathOf(track);
     final br = BorderRadius.circular(radius);
 
-    if (path == null) {
-      final seed = track?.album.isNotEmpty == true
-          ? track!.album
-          : (track?.title ?? '');
-      final color = placeholderColorOf(seed);
-      final letter = seed.isEmpty ? '♪' : seed.characters.first;
+    if (resolved == null) {
+      final s = seed ?? artworkSeedOf(track);
+      final color = placeholderColorOf(s);
+      final letter =
+          s.isEmpty ? '♪' : s.characters.first.toUpperCase();
       return Container(
         width: size,
         height: size,
@@ -61,16 +86,20 @@ class Artwork extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [color, Color.lerp(color, AppColors.bgBase, 0.55)!],
+            colors: [
+              color,
+              HSLColor.fromColor(color).withLightness(0.34).toColor(),
+            ],
           ),
         ),
         alignment: Alignment.center,
         child: Text(
           letter,
           style: TextStyle(
+            fontFamily: AppFont.display,
             fontSize: size * 0.34,
-            fontWeight: FontWeight.w600,
-            color: Colors.white.withValues(alpha: 0.55),
+            fontWeight: FontWeight.w500,
+            color: AppColors.paperHi.withValues(alpha: 0.78),
           ),
         ),
       );
@@ -79,8 +108,8 @@ class Artwork extends StatelessWidget {
     return ClipRRect(
       borderRadius: br,
       child: Image.file(
-        File(path),
-        key: ValueKey(path),
+        File(resolved),
+        key: ValueKey(resolved),
         width: size,
         height: size,
         fit: BoxFit.cover,
@@ -88,95 +117,7 @@ class Artwork extends StatelessWidget {
         errorBuilder: (_, _, _) => Container(
           width: size,
           height: size,
-          color: const Color(0xFF1A1A2E),
-        ),
-      ),
-    );
-  }
-}
-
-/// 앨범아트를 크게 블러 처리해 화면 전체에 깐 배경.
-///
-/// 유리가 굴절시킬 대상이 있어야 글래스모피즘이 눈에 보인다. 배경이 평평한
-/// 검정이면 블러가 할 일이 없어서 유리가 그냥 반투명 사각형으로 보인다.
-class BlurredBackdrop extends StatelessWidget {
-  const BlurredBackdrop({
-    super.key,
-    required this.track,
-    this.topOverlay = 0.18,
-    this.bottomOverlay = 0.72,
-    this.blur = AppBlur.backdrop,
-    this.opacity = 1.0,
-  });
-
-  final Track? track;
-  final double topOverlay;
-  final double bottomOverlay;
-  final double blur;
-
-  /// 라이브러리 화면처럼 은은하게만 깔 때 낮춘다.
-  final double opacity;
-
-  @override
-  Widget build(BuildContext context) {
-    final path = artworkPathOf(track);
-    final seed = track?.album.isNotEmpty == true
-        ? track!.album
-        : (track?.title ?? 'player');
-    final fallback = placeholderColorOf(seed);
-
-    return Positioned.fill(
-      child: IgnorePointer(
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            Opacity(
-              opacity: opacity,
-              child: path == null
-                  ? DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: RadialGradient(
-                          center: const Alignment(0, -0.7),
-                          radius: 1.1,
-                          colors: [
-                            fallback.withValues(alpha: 0.55),
-                            AppColors.bgBase,
-                          ],
-                        ),
-                      ),
-                    )
-                  : ImageFiltered(
-                      imageFilter: ui.ImageFilter.blur(
-                        sigmaX: blur / 2,
-                        sigmaY: blur / 2,
-                        tileMode: TileMode.clamp,
-                      ),
-                      child: Transform.scale(
-                        scale: 1.25,
-                        child: Image.file(
-                          File(path),
-                          key: ValueKey('bg_$path'),
-                          fit: BoxFit.cover,
-                          gaplessPlayback: true,
-                          errorBuilder: (_, _, _) =>
-                              const ColoredBox(color: AppColors.bgBase),
-                        ),
-                      ),
-                    ),
-            ),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withValues(alpha: topOverlay),
-                    Colors.black.withValues(alpha: bottomOverlay),
-                  ],
-                ),
-              ),
-            ),
-          ],
+          color: AppColors.paperLo,
         ),
       ),
     );

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
+import 'artwork_tone.dart';
 
 String formatDuration(Duration d) {
   final total = d.inSeconds;
@@ -19,30 +20,32 @@ class SheetHandle extends StatelessWidget {
           width: 36,
           height: 4,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.25),
+            color: AppColors.paperLo,
             borderRadius: BorderRadius.circular(AppRadius.pill),
           ),
         ),
       );
 }
 
-/// 시안의 얇은 진행 바. 트랙 2px, 핸들 6px.
+/// 진행 바. 트랙 2px에 채운 만큼만 강조색.
+///
+/// 손잡이 동그라미를 두지 않는다. 인쇄물에 튀어나온 부품이 없다. 누르고
+/// 끄는 자리는 20px로 넓게 잡되 그리지는 않는다.
 class ThinProgressBar extends StatelessWidget {
   const ThinProgressBar({
     super.key,
     required this.progress,
     this.onSeek,
     this.height = 2,
-    this.handleSize = 6,
   });
 
   final double progress;
   final ValueChanged<double>? onSeek;
   final double height;
-  final double handleSize;
 
   @override
   Widget build(BuildContext context) {
+    final tone = CoverScope.of(context);
     return LayoutBuilder(
       builder: (context, constraints) {
         final w = constraints.maxWidth;
@@ -58,45 +61,27 @@ class ThinProgressBar extends StatelessWidget {
           onHorizontalDragUpdate: (d) => handle(d.localPosition),
           child: SizedBox(
             height: 20,
-            child: Stack(
-              alignment: Alignment.centerLeft,
-              clipBehavior: Clip.none,
-              children: [
-                Container(
-                  height: height,
-                  decoration: BoxDecoration(
-                    color: AppColors.trackInactive,
-                    borderRadius: BorderRadius.circular(AppRadius.pill),
-                  ),
+            child: Center(
+              // 폭을 못 박지 않으면 Container가 자식 폭으로 줄어들어서
+              // FractionallySizedBox가 기준을 못 받는다
+              child: Container(
+                width: double.infinity,
+                height: height,
+                decoration: BoxDecoration(
+                  color: AppColors.paperLo,
+                  borderRadius: BorderRadius.circular(AppRadius.pill),
                 ),
-                FractionallySizedBox(
+                child: FractionallySizedBox(
+                  alignment: Alignment.centerLeft,
                   widthFactor: p,
                   child: Container(
-                    height: height,
                     decoration: BoxDecoration(
-                      color: AppColors.accent,
+                      color: tone.accent,
                       borderRadius: BorderRadius.circular(AppRadius.pill),
                     ),
                   ),
                 ),
-                Positioned(
-                  left: (w * p - handleSize / 2).clamp(0.0, w - handleSize),
-                  child: Container(
-                    width: handleSize,
-                    height: handleSize,
-                    decoration: BoxDecoration(
-                      color: AppColors.accent,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.accent.withValues(alpha: 0.8),
-                          blurRadius: 8,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         );
@@ -105,26 +90,26 @@ class ThinProgressBar extends StatelessWidget {
   }
 }
 
-/// 층 라벨. "1. 기기" 같은 것.
+/// 섹션 라벨. 자간을 벌린 작은 회색 글자.
 class SectionLabel extends StatelessWidget {
   const SectionLabel(this.text, {super.key});
 
   final String text;
 
   @override
-  Widget build(BuildContext context) => Text(
-        text,
-        style: const TextStyle(fontSize: 13, color: AppColors.t3),
-      );
+  Widget build(BuildContext context) => Text(text, style: AppText.label);
 }
 
-/// 시안의 accent 알약 버튼.
-class AccentButton extends StatelessWidget {
-  const AccentButton({
+/// 화면에서 제일 중요한 동작 하나. 잉크로 채운다.
+///
+/// 강조색으로 채우지 않는다. 강조색은 재생 상태를 말하는 데 쓰고 있어서,
+/// 버튼까지 그 색으로 칠하면 무엇이 재생 중이라는 뜻인지 흐려진다.
+class InkButton extends StatelessWidget {
+  const InkButton({
     super.key,
     required this.label,
     required this.onPressed,
-    this.padding = const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+    this.padding = const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
   });
 
   final String label;
@@ -133,22 +118,20 @@ class AccentButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onPressed,
-      child: Opacity(
-        opacity: onPressed == null ? 0.4 : 1,
-        child: Container(
+    final enabled = onPressed != null;
+    return Material(
+      color: enabled ? AppColors.ink1 : AppColors.paperLo,
+      borderRadius: BorderRadius.circular(AppRadius.pill),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onPressed,
+        child: Padding(
           padding: padding,
-          decoration: BoxDecoration(
-            color: AppColors.accent,
-            borderRadius: BorderRadius.circular(AppRadius.pill),
-          ),
           child: Text(
             label,
-            style: const TextStyle(
-              fontSize: 15,
+            style: AppText.body.copyWith(
               fontWeight: FontWeight.w600,
-              color: Color(0xF20B0B0F),
+              color: enabled ? AppColors.paperHi : AppColors.ink3,
             ),
           ),
         ),
@@ -178,16 +161,16 @@ class EmptyHint extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 40, color: AppColors.t3),
-              const SizedBox(height: 16),
-              Text(title, style: AppText.body, textAlign: TextAlign.center),
-              const SizedBox(height: 8),
+              Icon(icon, size: 36, color: AppColors.hair),
+              const SizedBox(height: 18),
               Text(
-                body,
-                style: AppText.caption.copyWith(color: AppColors.t3),
+                title,
+                style: AppText.title.copyWith(fontSize: 24),
                 textAlign: TextAlign.center,
               ),
-              if (action != null) ...[const SizedBox(height: 20), action!],
+              const SizedBox(height: 10),
+              Text(body, style: AppText.sub, textAlign: TextAlign.center),
+              if (action != null) ...[const SizedBox(height: 22), action!],
             ],
           ),
         ),

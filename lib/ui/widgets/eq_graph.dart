@@ -143,7 +143,7 @@ class _EqGraphPainter extends CustomPainter {
     canvas.drawPath(
       sumPath,
       Paint()
-        ..color = AppColors.accent.withValues(alpha: 0.27)
+        ..color = AppColors.coverEdge
         ..style = PaintingStyle.stroke
         ..strokeWidth = 8
         ..strokeCap = StrokeCap.round
@@ -152,7 +152,7 @@ class _EqGraphPainter extends CustomPainter {
     canvas.drawPath(
       sumPath,
       Paint()
-        ..color = AppColors.accent
+        ..color = AppColors.cover
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2.5
         ..strokeCap = StrokeCap.round
@@ -167,13 +167,13 @@ class _EqGraphPainter extends CustomPainter {
       canvas.drawCircle(
         center,
         4,
-        Paint()..color = AppColors.accent,
+        Paint()..color = AppColors.cover,
       );
       canvas.drawCircle(
         center,
         4,
         Paint()
-          ..color = AppColors.bgBase.withValues(alpha: 0.8)
+          ..color = AppColors.paper.withValues(alpha: 0.85)
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.5,
       );
@@ -310,7 +310,7 @@ class _MiniEqPainter extends CustomPainter {
     canvas.drawPath(
       path,
       Paint()
-        ..color = AppColors.accent
+        ..color = AppColors.cover
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.5
         ..strokeCap = StrokeCap.round

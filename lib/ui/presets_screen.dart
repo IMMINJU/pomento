@@ -5,9 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models/preset.dart';
 import '../providers.dart';
 import 'theme.dart';
+import 'home_shell.dart';
 import 'widgets/common.dart';
 import 'widgets/eq_graph.dart';
-import 'widgets/glass.dart';
+import 'widgets/paper.dart';
+import 'widgets/screen_header.dart';
+import 'widgets/surface.dart';
 
 /// 프리셋 목록.
 ///
@@ -21,68 +24,84 @@ class PresetsScreen extends ConsumerWidget {
     final repo = ref.watch(presetRepositoryProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.bgBase,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        title: const Text('프리셋', style: AppText.display),
-        iconTheme: const IconThemeData(color: AppColors.t1),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.ios_share, color: AppColors.t2),
-            tooltip: '내보내기',
-            onPressed: () async {
-              final json = await repo.exportShareable();
-              await Clipboard.setData(ClipboardData(text: json));
-              if (!context.mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('프리셋을 클립보드에 복사했습니다')),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.download_outlined, color: AppColors.t2),
-            tooltip: '가져오기',
-            onPressed: () => _importDialog(context, ref),
-          ),
-        ],
-      ),
-      body: StreamBuilder<List<Preset>>(
-        stream: repo.watchByLayer(PresetLayer.taste),
-        builder: (context, snapshot) {
-          final all = snapshot.data ?? const <Preset>[];
-          final mine = all.where((p) => p.author == null).toList();
-          final theirs = all.where((p) => p.author != null).toList();
-
-          return ListView(
-            padding: const EdgeInsets.only(bottom: 40),
+      body: PaperBackground(
+        child: SafeArea(
+          bottom: false,
+          child: Column(
             children: [
-              const Padding(
-                padding: EdgeInsets.fromLTRB(20, 8, 20, 10),
-                child: SectionLabel('내 프리셋'),
-              ),
-              for (final p in mine) _PresetCard(preset: p),
-              if (theirs.isNotEmpty) ...[
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 10),
-                  child: Row(
-                    children: [
-                      SectionLabel('${theirs.first.author}이(가) 만든'),
-                    ],
+              ScreenHeader(
+                title: '프리셋',
+                showBack: true,
+                actions: [
+                  RoundButton(
+                    filled: false,
+                    onTap: () async {
+                      final json = await repo.exportShareable();
+                      await Clipboard.setData(ClipboardData(text: json));
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text('프리셋을 클립보드에 복사했습니다')),
+                      );
+                    },
+                    child: const Icon(Icons.ios_share,
+                        size: 20, color: AppColors.ink2),
                   ),
-                ),
-                for (final p in theirs) _PresetCard(preset: p),
-              ],
-              const Padding(
-                padding: EdgeInsets.fromLTRB(20, 24, 20, 0),
-                child: Text(
-                  '기기 보정은 각자 폰에만 저장됩니다. 이어폰 특성이 서로 달라서 '
-                  '완성된 곡선을 통째로 주고받으면 상대 폰에서 어긋납니다.',
-                  style: AppText.small,
+                  RoundButton(
+                    filled: false,
+                    onTap: () => _importDialog(context, ref),
+                    child: const Icon(Icons.download_outlined,
+                        size: 20, color: AppColors.ink2),
+                  ),
+                ],
+              ),
+              Expanded(
+                child: StreamBuilder<List<Preset>>(
+                  stream: repo.watchByLayer(PresetLayer.taste),
+                  builder: (context, snapshot) {
+                    final all = snapshot.data ?? const <Preset>[];
+                    final mine =
+                        all.where((p) => p.author == null).toList();
+                    final theirs =
+                        all.where((p) => p.author != null).toList();
+
+                    return ListView(
+                      padding: EdgeInsets.only(
+                          bottom: shellBottomInset(context, ref) + 24),
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.fromLTRB(
+                              AppSpace.gutter, 8, AppSpace.gutter, 12),
+                          child: SectionLabel('내 프리셋'),
+                        ),
+                        for (final p in mine) _PresetCard(preset: p),
+                        if (theirs.isNotEmpty) ...[
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(
+                                AppSpace.gutter, 28, AppSpace.gutter, 12),
+                            child: SectionLabel(
+                                '${theirs.first.author}이(가) 만든'),
+                          ),
+                          for (final p in theirs) _PresetCard(preset: p),
+                        ],
+                        const Padding(
+                          padding: EdgeInsets.fromLTRB(
+                              AppSpace.gutter, 28, AppSpace.gutter, 0),
+                          child: Text(
+                            '기기 보정은 각자 폰에만 저장됩니다. 이어폰 특성이 서로 '
+                            '달라서 완성된 곡선을 통째로 주고받으면 상대 폰에서 '
+                            '어긋납니다.',
+                            style: AppText.sub,
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ),
             ],
-          );
-        },
+          ),
+        ),
       ),
     );
   }
@@ -92,7 +111,8 @@ class PresetsScreen extends ConsumerWidget {
     final text = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF14141C),
+        backgroundColor: AppColors.paperHi,
+        surfaceTintColor: Colors.transparent,
         title: const Text('프리셋 가져오기', style: AppText.body),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -100,11 +120,11 @@ class PresetsScreen extends ConsumerWidget {
             TextField(
               controller: controller,
               maxLines: 6,
-              style: AppText.caption,
-              cursorColor: AppColors.accent,
+              style: AppText.sub,
+              cursorColor: AppColors.ink1,
               decoration: const InputDecoration(
                 hintText: '받은 JSON을 붙여넣으세요',
-                hintStyle: TextStyle(color: AppColors.t3),
+                hintStyle: TextStyle(color: AppColors.hair),
               ),
             ),
           ],
@@ -112,12 +132,16 @@ class PresetsScreen extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('취소', style: TextStyle(color: AppColors.t2)),
+            child: const Text('취소',
+                style: TextStyle(color: AppColors.ink3)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, controller.text),
             child:
-                const Text('가져오기', style: TextStyle(color: AppColors.accent)),
+                const Text('가져오기',
+                    style: TextStyle(
+                        color: AppColors.ink1,
+                        fontWeight: FontWeight.w600)),
           ),
         ],
       ),
@@ -148,10 +172,8 @@ class _PresetCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-      child: GlassSurface(
+      child: Sunken(
         radius: AppRadius.card,
-        opacity: 0.08,
-        shadow: false,
         padding: const EdgeInsets.all(12),
         onTap: () {
           ref.read(effectControllerProvider.notifier).selectTaste(preset);
@@ -180,7 +202,7 @@ class _PresetCard extends ConsumerWidget {
                     preset.summary,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: AppText.small,
+                    style: AppText.sub,
                   ),
                 ],
               ),
@@ -188,7 +210,7 @@ class _PresetCard extends ConsumerWidget {
             if (!preset.builtin)
               IconButton(
                 icon: const Icon(Icons.more_vert,
-                    size: 18, color: AppColors.t3),
+                    size: 18, color: AppColors.ink3),
                 onPressed: () => _menu(context, ref),
               ),
           ],
@@ -200,9 +222,9 @@ class _PresetCard extends ConsumerWidget {
   void _menu(BuildContext context, WidgetRef ref) {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: const Color(0xFF14141C),
+      backgroundColor: AppColors.paperHi,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.sheet)),
       ),
       builder: (sheetContext) => SafeArea(
         child: Column(
@@ -212,10 +234,10 @@ class _PresetCard extends ConsumerWidget {
             const SheetHandle(),
             const SizedBox(height: 8),
             ListTile(
-              leading: const Icon(Icons.copy, color: AppColors.t2),
+              leading: const Icon(Icons.copy, color: AppColors.ink2),
               title: const Text('이 프리셋만 복사', style: AppText.body),
               subtitle: const Text('상대에게 붙여넣기로 보낼 수 있습니다',
-                  style: AppText.small),
+                  style: AppText.sub),
               onTap: () async {
                 Navigator.pop(sheetContext);
                 final payload = {

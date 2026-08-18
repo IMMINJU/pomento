@@ -14,7 +14,13 @@ import 'import_sheet.dart';
 import 'presets_screen.dart';
 import 'theme.dart';
 import 'widgets/artwork.dart';
+import 'widgets/artwork_tone.dart';
 import 'widgets/common.dart';
+import 'widgets/paper.dart';
+import 'widgets/player_parts.dart';
+import 'widgets/screen_header.dart';
+import 'widgets/sheet.dart';
+import 'widgets/surface.dart';
 
 enum LibraryTab {
   songs('곡'),
@@ -35,7 +41,8 @@ class LibraryScreen extends ConsumerStatefulWidget {
   ConsumerState<LibraryScreen> createState() => _LibraryScreenState();
 }
 
-class _LibraryScreenState extends ConsumerState<LibraryScreen> {
+class _LibraryScreenState extends ConsumerState<LibraryScreen>
+    with NowPlayingScroll {
   LibraryTab _tab = LibraryTab.songs;
   String _query = '';
   bool _searching = false;
@@ -55,48 +62,23 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   @override
   Widget build(BuildContext context) {
     final tracksAsync = ref.watch(tracksProvider);
+    // 목록에서 지금 곡을 그 곡의 색으로 표시한다
+    final playing = ref.watch(playerControllerProvider).current;
+    final tone = coverToneOf(ref, playing);
 
-    return Scaffold(
-      backgroundColor: AppColors.bgBase,
-      body: Stack(
-        children: [
-          // 상단 accent 라디얼
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 200,
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: RadialGradient(
-                    center: const Alignment(0, -1),
-                    radius: 1.0,
-                    colors: [
-                      AppColors.accent.withValues(alpha: 0.08),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-
-          SafeArea(
+    return CoverScope(
+      tone: tone,
+      child: Scaffold(
+        body: PaperBackground(
+          child: SafeArea(
             bottom: false,
             child: Column(
               children: [
                 _header(),
                 _tabs(),
-                Container(height: 1, color: AppColors.divider),
                 Expanded(
                   child: tracksAsync.when(
-                    loading: () => const Center(
-                      child: CircularProgressIndicator(
-                        color: AppColors.accent,
-                        strokeWidth: 2,
-                      ),
-                    ),
+                    loading: () => const SizedBox.shrink(),
                     error: (e, _) => EmptyHint(
                       icon: Icons.error_outline,
                       title: '라이브러리를 읽지 못했습니다',
@@ -108,100 +90,104 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               ],
             ),
           ),
-
-        ],
+        ),
       ),
     );
   }
 
   Widget _header() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 6, 12, 0),
-      child: Row(
-        children: [
-          // 이제 탭이 아니라 재생 화면 위에 쌓이는 화면이다. 돌아갈 길이
-          // 있어야 한다.
-          IconButton(
-            icon: const Icon(Icons.chevron_left, size: 28,
-                color: AppColors.t1),
-            onPressed: () => Navigator.of(context).maybePop(),
-          ),
-          if (_searching)
-            Expanded(
-              child: TextField(
-                autofocus: true,
-                style: AppText.body,
-                cursorColor: AppColors.accent,
-                decoration: const InputDecoration(
-                  hintText: '제목, 아티스트 검색',
-                  hintStyle: TextStyle(color: AppColors.t3, fontSize: 15),
-                  border: InputBorder.none,
-                  isDense: true,
+    final tracks = ref.watch(tracksProvider).value;
+    if (_searching) {
+      return SizedBox(
+        height: 78,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(AppSpace.gutter, 0, 10, 10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: TextField(
+                  autofocus: true,
+                  style: AppText.title.copyWith(fontSize: 24),
+                  cursorColor: AppColors.ink1,
+                  decoration: InputDecoration(
+                    hintText: '제목, 아티스트',
+                    hintStyle: AppText.title.copyWith(
+                      fontSize: 24,
+                      color: AppColors.hair,
+                    ),
+                    border: InputBorder.none,
+                    isDense: true,
+                  ),
+                  onChanged: (v) => setState(() => _query = v),
                 ),
-                onChanged: (v) => setState(() => _query = v),
               ),
-            )
-          else
-            const Expanded(child: Text('라이브러리', style: AppText.display)),
-          IconButton(
-            icon: Icon(
-              _searching ? Icons.close : Icons.search,
-              size: 22,
-              color: AppColors.t2,
-            ),
-            onPressed: () => setState(() {
-              _searching = !_searching;
-              if (!_searching) _query = '';
-            }),
+              RoundButton(
+                filled: false,
+                onTap: () => setState(() {
+                  _searching = false;
+                  _query = '';
+                }),
+                child: const Icon(Icons.close, size: 22, color: AppColors.ink2),
+              ),
+            ],
           ),
-          IconButton(
-            icon: const Icon(
-              Icons.more_horiz,
-              size: 22,
-              color: AppColors.t2,
-            ),
-            onPressed: _showMenu,
-          ),
-        ],
-      ),
+        ),
+      );
+    }
+
+    return ScreenHeader(
+      title: '라이브러리',
+      subtitle: tracks == null ? null : '${tracks.length}곡',
+      showBack: false,
+      actions: [
+        RoundButton(
+          filled: false,
+          onTap: () => setState(() => _searching = true),
+          child: const Icon(Icons.search, size: 20, color: AppColors.ink1),
+        ),
+        RoundButton(
+          filled: false,
+          onTap: _showMenu,
+          child: const Icon(Icons.more_horiz, size: 20, color: AppColors.ink2),
+        ),
+      ],
     );
   }
 
   Widget _tabs() {
+    // 고른 탭만 굵게 쓰고 아래에 짧은 밑줄. 알약 세그먼트를 쓰지 않는 이유는
+    // 탭이 다섯이라 알약으로 만들면 글자가 접혀서다
     return SizedBox(
-      height: 38,
+      height: 40,
       child: ListView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 20),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpace.gutter),
         children: [
           for (final t in LibraryTab.values)
             GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: () => setState(() => _tab = t),
               child: Padding(
-                padding: const EdgeInsets.only(right: 20),
+                padding: const EdgeInsets.only(right: 22),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     Text(
                       t.label,
-                      style: TextStyle(
+                      style: AppText.body.copyWith(
                         fontSize: 15,
-                        height: 22 / 15,
-                        fontWeight:
-                            t == _tab ? FontWeight.w600 : FontWeight.w400,
-                        color: t == _tab ? AppColors.t1 : AppColors.t3,
+                        fontWeight: t == _tab
+                            ? FontWeight.w600
+                            : FontWeight.w500,
+                        color: t == _tab ? AppColors.ink1 : AppColors.ink3,
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 7),
                     Container(
                       height: 2,
-                      width: t.label.length * 15.0,
-                      decoration: BoxDecoration(
-                        color:
-                            t == _tab ? AppColors.accent : Colors.transparent,
-                        borderRadius: BorderRadius.circular(AppRadius.pill),
-                      ),
+                      width: 18,
+                      color: t == _tab ? AppColors.ink1 : Colors.transparent,
                     ),
                   ],
                 ),
@@ -216,10 +202,12 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     if (_query.trim().isEmpty) return tracks;
     final q = _query.toLowerCase();
     return tracks
-        .where((t) =>
-            t.title.toLowerCase().contains(q) ||
-            t.artist.toLowerCase().contains(q) ||
-            t.album.toLowerCase().contains(q))
+        .where(
+          (t) =>
+              t.title.toLowerCase().contains(q) ||
+              t.artist.toLowerCase().contains(q) ||
+              t.album.toLowerCase().contains(q),
+        )
         .toList();
   }
 
@@ -231,11 +219,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
         icon: Icons.library_music_outlined,
         title: '아직 음악이 없습니다',
         body: '기기에 있는 음원을 가져오거나 파일을 직접 고르세요',
-        action: AccentButton(
-          label: '음악 넣기',
-          onPressed: _openImport,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-        ),
+        action: InkButton(label: '음악 넣기', onPressed: _openImport),
       );
     }
 
@@ -256,8 +240,14 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   Widget _trackList(List<Track> tracks) {
     final temposAsync = ref.watch(savedTemposProvider);
     final tempos = temposAsync.value ?? const <int, TempoSettings>{};
+    final nowId = ref.watch(playerControllerProvider).current?.id;
+    // 열자마자 듣던 곡이 보여야 한다. 천 곡 목록에서 맨 위부터 찾을 수 없다
+    if (_tab == LibraryTab.songs && _query.isEmpty) {
+      moveToNowPlaying(tracks.indexWhere((t) => t.id == nowId));
+    }
 
     return ListView.builder(
+      controller: nowScroll,
       padding: EdgeInsets.only(
         top: 4,
         bottom: shellBottomInset(context, ref) + 12,
@@ -266,12 +256,10 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       itemBuilder: (context, i) => TrackRow(
         track: tracks[i],
         savedTempo: tempos[tracks[i].id],
+        playing: tracks[i].id == nowId,
         onTap: () {
-          ref
-              .read(playerControllerProvider.notifier)
-              .playQueue(tracks, i);
-          ref.read(activeSourceProvider.notifier).state =
-              PlaybackSource.local;
+          ref.read(playerControllerProvider.notifier).playQueue(tracks, i);
+          ref.read(activeSourceProvider.notifier).state = PlaybackSource.local;
           backToPlayer(context);
         },
         onLongPress: () => _trackMenu(tracks[i]),
@@ -295,16 +283,32 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       itemBuilder: (context, i) {
         final key = keys[i];
         final items = groups[key]!;
-        return ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 20),
-          leading: Artwork(track: items.first, size: 48),
-          title: Text(key, style: AppText.body, overflow: TextOverflow.ellipsis),
-          subtitle: Text('${items.length}곡', style: AppText.caption),
+        return PaperRow(
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(
               builder: (_) => _GroupTracksScreen(title: key, tracks: items),
             ),
           ),
+          children: [
+            Artwork(track: items.first, size: 46),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    key,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppText.body,
+                  ),
+                  const SizedBox(height: 4),
+                  Text('${items.length}곡', style: AppText.sub),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, size: 20, color: AppColors.hair),
+          ],
         );
       },
     );
@@ -314,7 +318,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     final playlists = ref.watch(playlistsProvider);
     return playlists.when(
       loading: () => const SizedBox.shrink(),
-      error: (e, _) => Center(child: Text('$e', style: AppText.caption)),
+      error: (e, _) => Center(child: Text('$e', style: AppText.sub)),
       data: (list) {
         if (list.isEmpty) {
           return const EmptyHint(
@@ -325,19 +329,22 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
         }
         return ListView.builder(
           padding: EdgeInsets.only(
-        top: 4,
-        bottom: shellBottomInset(context, ref) + 12,
-      ),
+            top: 4,
+            bottom: shellBottomInset(context, ref) + 12,
+          ),
           itemCount: list.length,
-          itemBuilder: (context, i) => ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 20),
-            leading: const Icon(Icons.queue_music, color: AppColors.t2),
-            title: Text(list[i].name, style: AppText.body),
+          itemBuilder: (context, i) => PaperRow(
+            height: 64,
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (_) => _PlaylistScreen(playlist: list[i]),
               ),
             ),
+            children: [
+              const Icon(Icons.queue_music, size: 22, color: AppColors.ink2),
+              Expanded(child: Text(list[i].name, style: AppText.body)),
+              const Icon(Icons.chevron_right, size: 20, color: AppColors.hair),
+            ],
           ),
         );
       },
@@ -354,171 +361,117 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   }
 
   void _showMenu() {
-    showModalBottomSheet<void>(
+    showPaperSheet<void>(
       context: context,
-      backgroundColor: const Color(0xFF14141C),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 12),
-            const SheetHandle(),
-            const SizedBox(height: 8),
-            ListTile(
-              leading: const Icon(Icons.add, color: AppColors.t2),
-              title: const Text('음악 넣기', style: AppText.body),
-              onTap: () {
-                Navigator.pop(sheetContext);
-                _openImport();
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.tune, color: AppColors.t2),
-              title: const Text('프리셋', style: AppText.body),
-              onTap: () {
-                Navigator.pop(sheetContext);
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const PresetsScreen()),
-                );
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.sort, color: AppColors.t2),
-              title: const Text('정렬', style: AppText.body),
-              subtitle: Text(
-                ref.read(trackSortProvider).label,
-                style: AppText.caption,
-              ),
-              onTap: () {
-                Navigator.pop(sheetContext);
-                _sortMenu();
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.cleaning_services_outlined,
-                  color: AppColors.t2),
-              title: const Text('사라진 파일 정리', style: AppText.body),
-              onTap: () async {
-                Navigator.pop(sheetContext);
-                final n =
-                    await ref.read(libraryRepositoryProvider).pruneMissing();
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(n == 0 ? '정리할 것이 없습니다' : '$n곡 정리됨')),
-                );
-              },
-            ),
-            const SizedBox(height: 8),
-          ],
+      children: [
+        SheetTile(
+          icon: Icons.add,
+          title: '음악 넣기',
+          onTap: () {
+            Navigator.pop(context);
+            _openImport();
+          },
         ),
-      ),
+        SheetTile(
+          icon: Icons.tune,
+          title: '프리셋',
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const PresetsScreen()));
+          },
+        ),
+        SheetTile(
+          icon: Icons.sort,
+          title: '정렬',
+          description: ref.read(trackSortProvider).label,
+          onTap: () {
+            Navigator.pop(context);
+            _sortMenu();
+          },
+        ),
+        SheetTile(
+          icon: Icons.cleaning_services_outlined,
+          title: '사라진 파일 정리',
+          onTap: () async {
+            Navigator.pop(context);
+            final n = await ref.read(libraryRepositoryProvider).pruneMissing();
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(n == 0 ? '정리할 것이 없습니다' : '$n곡 정리됨')),
+            );
+          },
+        ),
+      ],
     );
   }
 
   void _sortMenu() {
-    showModalBottomSheet<void>(
+    final current = ref.read(trackSortProvider);
+    showPaperSheet<void>(
       context: context,
-      backgroundColor: const Color(0xFF14141C),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 12),
-            const SheetHandle(),
-            const SizedBox(height: 8),
-            for (final s in TrackSortValues.all)
-              ListTile(
-                title: Text(s.label, style: AppText.body),
-                trailing: ref.read(trackSortProvider) == s
-                    ? const Icon(Icons.check, color: AppColors.accent, size: 20)
-                    : null,
-                onTap: () {
-                  ref.read(trackSortProvider.notifier).state = s;
-                  Navigator.pop(sheetContext);
-                },
-              ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
+      title: '정렬',
+      children: [
+        for (final srt in TrackSortValues.all)
+          SheetTile(
+            title: srt.label,
+            selected: srt == current,
+            onTap: () {
+              ref.read(trackSortProvider.notifier).state = srt;
+              Navigator.pop(context);
+            },
+          ),
+      ],
     );
   }
 
   void _trackMenu(Track track) {
-    showModalBottomSheet<void>(
+    showPaperSheet<void>(
       context: context,
-      backgroundColor: const Color(0xFF14141C),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 12),
-            const SheetHandle(),
-            const SizedBox(height: 12),
-            ListTile(
-              leading: Artwork(track: track, size: 40),
-              title: Text(track.title,
-                  style: AppText.body, overflow: TextOverflow.ellipsis),
-              subtitle: Text(track.artist, style: AppText.caption),
-            ),
-            const Divider(color: AppColors.divider, height: 1),
-            ListTile(
-              leading: const Icon(Icons.image_outlined, color: AppColors.t2),
-              title: const Text('자켓 바꾸기', style: AppText.body),
-              subtitle: const Text(
-                '지정한 자켓은 무엇도 덮어쓰지 않습니다',
-                style: AppText.small,
-              ),
-              onTap: () async {
-                Navigator.pop(sheetContext);
-                await pickUserArtwork(context, ref, track);
-              },
-            ),
-            if (track.userArtworkPath != null)
-              ListTile(
-                leading: const Icon(Icons.undo, color: AppColors.t2),
-                title: const Text('원래 자켓으로', style: AppText.body),
-                onTap: () async {
-                  Navigator.pop(sheetContext);
-                  await ref
-                      .read(mediaImporterProvider)
-                      .clearUserArtwork(track.id);
-                },
-              ),
-            ListTile(
-              leading: const Icon(Icons.playlist_add, color: AppColors.t2),
-              title: const Text('재생목록에 넣기', style: AppText.body),
-              onTap: () {
-                Navigator.pop(sheetContext);
-                _addToPlaylist(track);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.delete_outline, color: Color(0xFFFF8C8C)),
-              title: const Text(
-                '라이브러리에서 빼기',
-                style: TextStyle(fontSize: 15, color: Color(0xFFFF8C8C)),
-              ),
-              onTap: () async {
-                Navigator.pop(sheetContext);
-                await ref
-                    .read(libraryRepositoryProvider)
-                    .deleteTrack(track.id);
-              },
-            ),
-            const SizedBox(height: 8),
-          ],
+      children: [
+        SheetTile(
+          leading: Artwork(track: track, size: 46),
+          title: track.title,
+          description: track.artist,
         ),
-      ),
+        const SizedBox(height: 6),
+        SheetTile(
+          icon: Icons.image_outlined,
+          title: '자켓 바꾸기',
+          description: '지정한 자켓은 무엇도 덮어쓰지 않습니다',
+          onTap: () async {
+            Navigator.pop(context);
+            await pickUserArtwork(context, ref, track);
+          },
+        ),
+        if (track.userArtworkPath != null)
+          SheetTile(
+            icon: Icons.undo,
+            title: '원래 자켓으로',
+            onTap: () async {
+              Navigator.pop(context);
+              await ref.read(mediaImporterProvider).clearUserArtwork(track.id);
+            },
+          ),
+        SheetTile(
+          icon: Icons.playlist_add,
+          title: '재생목록에 넣기',
+          onTap: () {
+            Navigator.pop(context);
+            _addToPlaylist(track);
+          },
+        ),
+        SheetTile(
+          icon: Icons.delete_outline,
+          title: '라이브러리에서 빼기',
+          danger: true,
+          onTap: () async {
+            Navigator.pop(context);
+            await ref.read(libraryRepositoryProvider).deleteTrack(track.id);
+          },
+        ),
+      ],
     );
   }
 
@@ -527,73 +480,30 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     final playlists = await repo.watchPlaylists().first;
     if (!mounted) return;
 
-    await showModalBottomSheet<void>(
+    await showPaperSheet<void>(
       context: context,
-      backgroundColor: const Color(0xFF14141C),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 12),
-            const SheetHandle(),
-            const SizedBox(height: 8),
-            for (final pl in playlists)
-              ListTile(
-                title: Text(pl.name, style: AppText.body),
-                onTap: () async {
-                  await repo.addToPlaylist(pl.id, track.id);
-                  if (sheetContext.mounted) Navigator.pop(sheetContext);
-                },
-              ),
-            ListTile(
-              leading: const Icon(Icons.add, color: AppColors.accent),
-              title: const Text('새 재생목록', style: AppText.body),
-              onTap: () async {
-                Navigator.pop(sheetContext);
-                final name = await _askText('새 재생목록', '이름');
-                if (name == null || name.isEmpty) return;
-                final id = await repo.createPlaylist(name);
-                await repo.addToPlaylist(id, track.id);
-              },
-            ),
-            const SizedBox(height: 8),
-          ],
+      title: '재생목록에 넣기',
+      children: [
+        for (final pl in playlists)
+          SheetTile(
+            title: pl.name,
+            onTap: () async {
+              await repo.addToPlaylist(pl.id, track.id);
+              if (mounted) Navigator.pop(context);
+            },
+          ),
+        SheetTile(
+          icon: Icons.add,
+          title: '새 재생목록',
+          onTap: () async {
+            Navigator.pop(context);
+            final name = await askText(context, title: '새 재생목록', hint: '이름');
+            if (name == null || name.isEmpty) return;
+            final id = await repo.createPlaylist(name);
+            await repo.addToPlaylist(id, track.id);
+          },
         ),
-      ),
-    );
-  }
-
-  Future<String?> _askText(String title, String hint) {
-    final controller = TextEditingController();
-    return showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF14141C),
-        title: Text(title, style: AppText.body),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          style: AppText.body,
-          cursorColor: AppColors.accent,
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: const TextStyle(color: AppColors.t3),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('취소', style: TextStyle(color: AppColors.t2)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, controller.text),
-            child: const Text('확인', style: TextStyle(color: AppColors.accent)),
-          ),
-        ],
-      ),
+      ],
     );
   }
 }
@@ -623,74 +533,46 @@ class TrackRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
+    final tone = CoverScope.of(context);
+    final tempo = savedTempo;
+    return PaperRow(
       onTap: onTap,
       onLongPress: onLongPress,
-      child: SizedBox(
-        height: 68,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Row(
+      children: [
+        Artwork(track: track, size: 46),
+        Expanded(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Artwork(track: track, size: 48),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      track.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 15,
-                        height: 22 / 15,
-                        color: playing ? AppColors.accent : AppColors.t1,
-                      ),
-                    ),
-                    Text(
-                      track.artist,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppText.caption,
-                    ),
-                  ],
+              Text(
+                track.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppText.body.copyWith(
+                  color: playing ? tone.accentInk : AppColors.ink1,
                 ),
               ),
-              const SizedBox(width: 8),
-              // 이 곡에 저장된 배속이 있으면 배지로 알린다.
-              if (savedTempo != null && !savedTempo!.isNormal) ...[
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(AppRadius.pill),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.14),
-                    ),
-                  ),
-                  child: Text(
-                    '${savedTempo!.speed.toStringAsFixed(2)}x',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: AppColors.t3,
-                      fontFeatures: tabularFigures,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-              ],
+              const SizedBox(height: 4),
               Text(
-                formatDuration(Duration(milliseconds: track.durationMs)),
-                style: AppText.mono,
+                track.artist,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppText.sub,
               ),
             ],
           ),
         ),
-      ),
+        // 이 곡에 저장된 배속이 있으면 길이 대신 그것을 적는다. 둘 다 적으면
+        // 오른쪽 끝이 복잡해지고, 배속이 걸린 곡은 그 사실이 더 중요하다
+        if (tempo != null && !tempo.isNormal)
+          ValuePill(label: '${tempo.speed.toStringAsFixed(2)}×', on: true)
+        else
+          Text(
+            formatDuration(Duration(milliseconds: track.durationMs)),
+            style: AppText.num.copyWith(fontSize: 12, color: AppColors.ink3),
+          ),
+      ],
     );
   }
 }
@@ -703,82 +585,126 @@ class _GroupTracksScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final tempos = ref.watch(savedTemposProvider).value ??
-        const <int, TempoSettings>{};
+    final tempos =
+        ref.watch(savedTemposProvider).value ?? const <int, TempoSettings>{};
+    final nowId = ref.watch(playerControllerProvider).current?.id;
     return Scaffold(
-      backgroundColor: AppColors.bgBase,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        title: Text(title, style: AppText.body),
-        iconTheme: const IconThemeData(color: AppColors.t1),
-      ),
-      body: ListView.builder(
-        itemCount: tracks.length,
-        itemBuilder: (context, i) => TrackRow(
-          track: tracks[i],
-          savedTempo: tempos[tracks[i].id],
-          onTap: () {
-            ref.read(playerControllerProvider.notifier).playQueue(tracks, i);
-            ref.read(activeSourceProvider.notifier).state =
-              PlaybackSource.local;
-          backToPlayer(context);
-          },
+      body: PaperBackground(
+        child: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              ScreenHeader(title: title, showBack: true),
+              Expanded(
+                child: ListView.builder(
+                  padding: EdgeInsets.only(
+                    bottom: shellBottomInset(context, ref) + 12,
+                  ),
+                  itemCount: tracks.length,
+                  itemBuilder: (context, i) => TrackRow(
+                    track: tracks[i],
+                    savedTempo: tempos[tracks[i].id],
+                    playing: tracks[i].id == nowId,
+                    onTap: () {
+                      ref
+                          .read(playerControllerProvider.notifier)
+                          .playQueue(tracks, i);
+                      ref.read(activeSourceProvider.notifier).state =
+                          PlaybackSource.local;
+                      backToPlayer(context);
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _PlaylistScreen extends ConsumerWidget {
+class _PlaylistScreen extends ConsumerStatefulWidget {
   const _PlaylistScreen({required this.playlist});
 
   final Playlist playlist;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_PlaylistScreen> createState() => _PlaylistScreenState();
+}
+
+class _PlaylistScreenState extends ConsumerState<_PlaylistScreen>
+    with NowPlayingScroll {
+  @override
+  Widget build(BuildContext context) {
+    final playlist = widget.playlist;
     final repo = ref.watch(libraryRepositoryProvider);
     return Scaffold(
-      backgroundColor: AppColors.bgBase,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        title: Text(playlist.name, style: AppText.body),
-        iconTheme: const IconThemeData(color: AppColors.t1),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.delete_outline, color: AppColors.t2),
-            onPressed: () async {
-              await repo.deletePlaylist(playlist.id);
-              if (context.mounted) Navigator.pop(context);
-            },
+      body: PaperBackground(
+        child: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              ScreenHeader(
+                title: playlist.name,
+                showBack: true,
+                actions: [
+                  RoundButton(
+                    filled: false,
+                    onTap: () async {
+                      await repo.deletePlaylist(playlist.id);
+                      if (context.mounted) Navigator.pop(context);
+                    },
+                    child: const Icon(
+                      Icons.delete_outline,
+                      size: 20,
+                      color: AppColors.ink2,
+                    ),
+                  ),
+                ],
+              ),
+              Expanded(
+                child: StreamBuilder<List<Track>>(
+                  stream: repo.watchPlaylistTracks(playlist.id),
+                  builder: (context, snapshot) {
+                    final tracks = snapshot.data ?? const <Track>[];
+                    if (tracks.isEmpty) {
+                      return const EmptyHint(
+                        icon: Icons.queue_music_outlined,
+                        title: '비어 있습니다',
+                        body: '곡을 길게 눌러 이 재생목록에 넣으세요',
+                      );
+                    }
+                    final nowId = ref
+                        .watch(playerControllerProvider)
+                        .current
+                        ?.id;
+                    moveToNowPlaying(tracks.indexWhere((t) => t.id == nowId));
+                    return ListView.builder(
+                      controller: nowScroll,
+                      padding: EdgeInsets.only(
+                        bottom: shellBottomInset(context, ref) + 12,
+                      ),
+                      itemCount: tracks.length,
+                      itemBuilder: (context, i) => TrackRow(
+                        track: tracks[i],
+                        playing: tracks[i].id == nowId,
+                        onTap: () {
+                          ref
+                              .read(playerControllerProvider.notifier)
+                              .playQueue(tracks, i);
+                          ref.read(activeSourceProvider.notifier).state =
+                              PlaybackSource.local;
+                          backToPlayer(context);
+                        },
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
-      body: StreamBuilder<List<Track>>(
-        stream: repo.watchPlaylistTracks(playlist.id),
-        builder: (context, snapshot) {
-          final tracks = snapshot.data ?? const <Track>[];
-          if (tracks.isEmpty) {
-            return const EmptyHint(
-              icon: Icons.queue_music_outlined,
-              title: '비어 있습니다',
-              body: '곡을 길게 눌러 이 재생목록에 넣으세요',
-            );
-          }
-          return ListView.builder(
-            itemCount: tracks.length,
-            itemBuilder: (context, i) => TrackRow(
-              track: tracks[i],
-              onTap: () {
-                ref
-                    .read(playerControllerProvider.notifier)
-                    .playQueue(tracks, i);
-                ref.read(activeSourceProvider.notifier).state =
-              PlaybackSource.local;
-          backToPlayer(context);
-              },
-            ),
-          );
-        },
+        ),
       ),
     );
   }

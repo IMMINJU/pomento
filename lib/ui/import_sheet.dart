@@ -11,7 +11,7 @@ import '../data/storage/media_importer.dart';
 import '../providers.dart';
 import 'theme.dart';
 import 'widgets/common.dart';
-import 'widgets/glass.dart';
+import 'widgets/surface.dart';
 
 /// 음원을 라이브러리에 넣는 시트.
 ///
@@ -51,7 +51,7 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
             padding: EdgeInsets.symmetric(horizontal: 20),
             child: Row(
               children: [
-                Text('음악 넣기', style: AppText.display),
+                Text('음악 넣기', style: AppText.title),
               ],
             ),
           ),
@@ -71,11 +71,11 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const CircularProgressIndicator(
-              color: AppColors.accent,
+              color: AppColors.cover,
               strokeWidth: 2,
             ),
             const SizedBox(height: 16),
-            Text(_status, style: AppText.caption),
+            Text(_status, style: AppText.sub),
           ],
         ),
       );
@@ -105,8 +105,8 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
               _selected.remove(item.uri);
             }
           }),
-          activeColor: AppColors.accent,
-          checkColor: AppColors.bgBase,
+          activeColor: AppColors.cover,
+          checkColor: AppColors.paper,
           contentPadding: const EdgeInsets.symmetric(horizontal: 20),
           title: Text(
             item.title,
@@ -117,7 +117,7 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
           subtitle: Text(
             '${item.artist} · ${formatDuration(Duration(milliseconds: item.durationMs))}'
             '${item.path == null ? ' · 복사 필요' : ''}',
-            style: AppText.caption,
+            style: AppText.sub,
           ),
         );
       },
@@ -186,7 +186,7 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
                       '애플뮤직 보관함 동기화가 켜져 있으면 앨범 자켓과 곡 정보가 '
                       '애플 카탈로그 것으로 바뀝니다. 파일 앱에서 직접 넣으면 '
                       '원본 그대로 유지됩니다.',
-                      style: AppText.caption.copyWith(color: AppColors.t2),
+                      style: AppText.sub.copyWith(color: AppColors.ink2),
                     ),
                   ],
                 ),
@@ -204,15 +204,13 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
     required String body,
     required VoidCallback onTap,
   }) {
-    return GlassSurface(
+    return Sunken(
       radius: AppRadius.card,
-      opacity: 0.08,
-      shadow: false,
       onTap: onTap,
       padding: const EdgeInsets.all(16),
       child: Row(
         children: [
-          Icon(icon, size: 24, color: AppColors.accent),
+          Icon(icon, size: 24, color: AppColors.cover),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
@@ -220,11 +218,11 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
               children: [
                 Text(title, style: AppText.body),
                 const SizedBox(height: 2),
-                Text(body, style: AppText.small),
+                Text(body, style: AppText.sub),
               ],
             ),
           ),
-          const Icon(Icons.chevron_right, color: AppColors.t3),
+          const Icon(Icons.chevron_right, color: AppColors.ink3),
         ],
       ),
     );
@@ -240,7 +238,7 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
             width: 32,
             height: 32,
             decoration: const BoxDecoration(
-              color: AppColors.accent,
+              color: AppColors.cover,
               shape: BoxShape.circle,
             ),
             alignment: Alignment.center,
@@ -249,7 +247,7 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
               style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: AppColors.bgBase,
+                color: AppColors.paper,
               ),
             ),
           ),
@@ -260,7 +258,7 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
               children: [
                 Text(title, style: AppText.body),
                 const SizedBox(height: 2),
-                Text(body, style: AppText.caption),
+                Text(body, style: AppText.sub),
               ],
             ),
           ),
@@ -286,11 +284,11 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
             }),
             child: Text(
               _selected.length == _found!.length ? '전체 해제' : '전체 선택',
-              style: const TextStyle(fontSize: 14, color: AppColors.t2),
+              style: const TextStyle(fontSize: 14, color: AppColors.ink2),
             ),
           ),
           const Spacer(),
-          AccentButton(
+          InkButton(
             label: '${_selected.length}곡 넣기',
             onPressed: _selected.isEmpty ? null : _importSelected,
             padding:

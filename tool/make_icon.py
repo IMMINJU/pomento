@@ -1,201 +1,90 @@
 """Pomento 앱 아이콘 생성기.
 
-구성은 글래스모피즘 그대로다. 뒤에 색이 번지는 배경을 깔고, 그 위에 반투명한
-유리 원을 얹고, 유리 안에 EQ 막대를 세운다. 유리는 뒤에 볼 것이 있어야
-유리로 보이기 때문에 배경의 색 번짐이 장식이 아니라 필수다.
+레터마크 하나다. Newsreader로 찍은 `P.` 를 남색 바탕에 올린다.
 
-막대 높이는 이 앱의 기본 곡선을 닮게 잡았다. 가운데가 높고 양 끝이 낮다.
+그림으로 가려던 시도를 여러 번 접었다. LP판, 레코드 축, 영사기, 음표 다
+그려봤는데 축소하면 무엇인지 모르겠거나 다른 앱과 닮았다. 글자는 그럴
+일이 없고, 마침표가 붙어서 `Po`로도 읽히고 문장의 끝으로도 읽힌다.
+
+그림자와 그라디언트를 넣지 않는다. 단색으로 밀어야 목록에서 또렷하다.
+
+글자 위치는 눈금으로 맞추지 않고 **잉크의 실제 경계를 재서** 맞춘다.
+서체의 사이드 베어링과 `P`의 오른쪽 여백 때문에 글자 상자 기준으로 가운데
+정렬하면 왼쪽으로 치우쳐 보인다.
 
     python tool/make_icon.py
     python tool/install_icons.py
 """
 
-import math
 import os
 
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageDraw, ImageFont
 
-OUT_DIR = os.path.join(os.path.dirname(__file__), "..", "assets", "icon")
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+OUT_DIR = os.path.join(ROOT, "assets", "icon")
+FONT = os.path.join(ROOT, "assets", "fonts", "Newsreader-Medium.ttf")
 
 SIZE = 1024
-SS = 3  # 슈퍼샘플링 배수
+SS = 2  # 슈퍼샘플링 배수
 S = SIZE * SS
 
-BG_BASE = (11, 11, 15)
-ACCENT = (165, 180, 252)
-VIOLET = (124, 92, 255)
-PINK = (255, 143, 177)
-CYAN = (94, 231, 223)
+# 시안의 --brand. 화면에서는 쓰지 않고 아이콘에만 쓴다
+BRAND = (0x26, 0x32, 0x5C)
+INK = (0xFB, 0xFC, 0xF9)
 
-# EQ 막대. (가로 위치 0~1, 높이 0~1, accent 여부)
-BARS = [
-    (0.12, 0.42, False),
-    (0.31, 0.68, False),
-    (0.50, 1.00, True),
-    (0.69, 0.60, False),
-    (0.88, 0.34, False),
-]
+MARK = "P."
+
+# 글자 크기. 아이콘 한 변에 대한 비율
+MARK_SCALE = 0.53
+
+# 적응형 아이콘의 안전 영역. 108dp 중 가운데 72dp만 항상 보인다.
+# 전경을 그 안에 넣어야 원형이든 사각형이든 잘리지 않는다
+SAFE = 72 / 108
 
 
-def blurred_background(size: int) -> Image.Image:
-    """어두운 바탕에 색 덩어리를 흩뿌리고 크게 흐린다."""
-    img = Image.new("RGBA", (size, size), BG_BASE + (255,))
+def draw_mark(size: int, scale: float) -> Image.Image:
+    """투명 바탕에 글자만 그린다. 잉크 경계를 재서 한가운데에 놓는다."""
+    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    font = ImageFont.truetype(FONT, int(size * scale))
+    d = ImageDraw.Draw(img)
 
-    blobs = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    d = ImageDraw.Draw(blobs)
+    # 실제로 칠해지는 영역. anchor를 쓰지 않고 직접 잰다
+    left, top, right, bottom = d.textbbox((0, 0), MARK, font=font)
+    x = (size - (right - left)) / 2 - left
+    y = (size - (bottom - top)) / 2 - top
 
-    def blob(cx, cy, r, color, alpha):
-        d.ellipse(
-            [cx - r, cy - r, cx + r, cy + r],
-            fill=color + (alpha,),
-        )
-
-    # 왼쪽 위가 밝고 오른쪽 아래로 갈수록 어두워지게 배치한다.
-    blob(size * 0.26, size * 0.24, size * 0.34, ACCENT, 235)
-    blob(size * 0.70, size * 0.20, size * 0.26, VIOLET, 210)
-    blob(size * 0.78, size * 0.66, size * 0.30, PINK, 165)
-    blob(size * 0.18, size * 0.78, size * 0.24, ACCENT, 130)
-    blob(size * 0.52, size * 0.56, size * 0.24, PINK, 110)
-
-    blobs = blobs.filter(ImageFilter.GaussianBlur(size * 0.115))
-    img.alpha_composite(blobs)
-
-    # 아래쪽을 눌러서 유리와 막대가 뜨게 한다.
-    shade = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    sd = ImageDraw.Draw(shade)
-    for y in range(size):
-        t = y / (size - 1)
-        sd.line([(0, y), (size, y)], fill=(0, 0, 0, int(120 * (t**1.6))))
-    img.alpha_composite(shade)
+    d.text((x, y), MARK, font=font, fill=INK + (255,))
     return img
 
 
-def _composite(base: Image.Image, layer: Image.Image) -> None:
-    base.alpha_composite(layer)
-
-
-def glass_disc(size: int, radius: float) -> Image.Image:
-    """가운데에 놓일 반투명 유리 원. 배경 위에 얹으면 뒤가 비친다."""
-    layer = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    cx = cy = size / 2
-    box = [cx - radius, cy - radius, cx + radius, cy + radius]
-
-    # 유리 면
-    face = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    ImageDraw.Draw(face).ellipse(box, fill=(255, 255, 255, 48))
-    _composite(layer, face)
-
-    # 왼쪽 위에서 빛이 드는 느낌. 흐린 흰 덩어리를 원 안에만 남긴다.
-    sheen = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    sd = ImageDraw.Draw(sheen)
-    sd.ellipse(
-        [
-            cx - radius * 1.05,
-            cy - radius * 1.35,
-            cx + radius * 0.35,
-            cy + radius * 0.05,
-        ],
-        fill=(255, 255, 255, 62),
-    )
-    sheen = sheen.filter(ImageFilter.GaussianBlur(radius * 0.20))
-    mask = Image.new("L", (size, size), 0)
-    ImageDraw.Draw(mask).ellipse(box, fill=255)
-    sheen.putalpha(
-        Image.composite(sheen.getchannel("A"), Image.new("L", (size, size), 0), mask)
-    )
-    _composite(layer, sheen)
-
-    # 테두리. 위쪽이 밝고 아래로 갈수록 어두워진다.
-    ring = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    ImageDraw.Draw(ring).ellipse(
-        box, outline=(255, 255, 255, 255), width=int(radius * 0.028)
-    )
-    grad = Image.new("L", (size, size))
-    gd = ImageDraw.Draw(grad)
-    for y in range(size):
-        t = (y - (cy - radius)) / (2 * radius)
-        t = min(max(t, 0.0), 1.0)
-        gd.line([(0, y), (size, y)], fill=int(200 - 150 * t))
-    ring.putalpha(
-        Image.composite(grad, Image.new("L", (size, size), 0), ring.getchannel("A"))
-    )
-    _composite(layer, ring)
-
-    return layer
-
-
-def eq_bars(size: int, radius: float) -> Image.Image:
-    """유리 안에 세우는 EQ 막대."""
-    layer = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    d = ImageDraw.Draw(layer)
-
-    cx = cy = size / 2
-    span = radius * 1.06  # 막대가 놓이는 가로 폭
-    bar_w = span / (len(BARS) * 2.1)
-    max_h = radius * 1.12
-    baseline = cy + max_h * 0.42
-
-    for pos, height, is_accent in BARS:
-        x = cx - span / 2 + span * pos
-        h = max_h * height
-        top = baseline - h
-        color = ACCENT + (255,) if is_accent else (255, 255, 255, 232)
-        d.rounded_rectangle(
-            [x - bar_w / 2, top, x + bar_w / 2, baseline],
-            radius=bar_w / 2,
-            fill=color,
-        )
-
-    # accent 막대에만 은은한 빛을 준다.
-    glow = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    gd = ImageDraw.Draw(glow)
-    for pos, height, is_accent in BARS:
-        if not is_accent:
-            continue
-        x = cx - span / 2 + span * pos
-        h = max_h * height
-        gd.rounded_rectangle(
-            [x - bar_w / 2, baseline - h, x + bar_w / 2, baseline],
-            radius=bar_w / 2,
-            fill=ACCENT + (190,),
-        )
-    glow = glow.filter(ImageFilter.GaussianBlur(radius * 0.08))
-    out = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    out.alpha_composite(glow)
-    out.alpha_composite(layer)
+def flatten(fg: Image.Image, bg_color) -> Image.Image:
+    out = Image.new("RGBA", fg.size, bg_color + (255,))
+    out.alpha_composite(fg)
     return out
-
-
-def foreground(size: int, radius: float) -> Image.Image:
-    layer = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    layer.alpha_composite(glass_disc(size, radius))
-    layer.alpha_composite(eq_bars(size, radius))
-    return layer
 
 
 def main() -> None:
     os.makedirs(OUT_DIR, exist_ok=True)
+    if not os.path.exists(FONT):
+        raise SystemExit("Newsreader가 없다. assets/fonts를 먼저 채울 것")
 
-    bg = blurred_background(S)
+    # ── 일반 아이콘 ──
+    mark = draw_mark(S, MARK_SCALE)
+    icon = flatten(mark, BRAND).resize((SIZE, SIZE), Image.LANCZOS)
+    icon.convert("RGB").save(os.path.join(OUT_DIR, "icon.png"))
 
-    # 1) 전체 아이콘: 배경 + 유리 + 막대. iOS와 구형 안드로이드가 쓴다.
-    full = bg.copy()
-    full.alpha_composite(foreground(S, S * 0.30))
-    full.resize((SIZE, SIZE), Image.LANCZOS).convert("RGB").save(
-        os.path.join(OUT_DIR, "icon.png")
-    )
+    # ── 적응형 배경 ──
+    bg = Image.new("RGB", (SIZE, SIZE), BRAND)
+    bg.save(os.path.join(OUT_DIR, "icon_background.png"))
 
-    # 2) 적응형 아이콘 전경. 바깥이 잘리므로 가운데 66% 안에 담는다.
-    foreground(S, S * 0.205).resize((SIZE, SIZE), Image.LANCZOS).save(
-        os.path.join(OUT_DIR, "icon_foreground.png")
-    )
+    # ── 적응형 전경 ──
+    # 안전 영역 안에 들어가야 하므로 글자를 그만큼 줄인다
+    fg = draw_mark(S, MARK_SCALE * SAFE).resize((SIZE, SIZE), Image.LANCZOS)
+    fg.save(os.path.join(OUT_DIR, "icon_foreground.png"))
 
-    # 3) 적응형 아이콘 배경.
-    bg.resize((SIZE, SIZE), Image.LANCZOS).convert("RGB").save(
-        os.path.join(OUT_DIR, "icon_background.png")
-    )
-
-    print("wrote", os.path.abspath(OUT_DIR))
+    for name in ("icon.png", "icon_background.png", "icon_foreground.png"):
+        path = os.path.join(OUT_DIR, name)
+        print("  %-24s %d KB" % (name, os.path.getsize(path) // 1024))
 
 
 if __name__ == "__main__":
