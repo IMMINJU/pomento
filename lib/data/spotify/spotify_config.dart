@@ -9,9 +9,21 @@
 class SpotifyConfig {
   const SpotifyConfig({required this.clientId});
 
-  /// 빌드에 박아 넣은 기본값.
-  static const String buildTimeClientId =
-      String.fromEnvironment('SPOTIFY_CLIENT_ID');
+  /// 우리 앱의 Client ID.
+  ///
+  /// Client ID는 비밀이 아니다. 어느 앱이든 클라이언트에 실려 나가고,
+  /// Spotify 문서도 그렇게 쓴다. 비밀인 것은 Client Secret 쪽이고 그건
+  /// 넣지 않는다. 저장소가 비공개이기도 하다.
+  ///
+  /// Development Mode라 대시보드의 User Management에 올라간 계정만 로그인할
+  /// 수 있다. 값이 새어 나가도 남이 쓸 수 없다.
+  static const String bakedClientId = '2276e411ef2140c3bb49e7ed60de222a';
+
+  /// 빌드할 때 다른 값을 쓰고 싶으면 --dart-define으로 덮는다.
+  static const String buildTimeClientId = String.fromEnvironment(
+    'SPOTIFY_CLIENT_ID',
+    defaultValue: bakedClientId,
+  );
 
   /// Spotify 대시보드의 Redirect URI에 이 값을 그대로 등록해야 한다.
   /// android/app/build.gradle.kts의 manifestPlaceholders와 짝이 맞아야 한다.
