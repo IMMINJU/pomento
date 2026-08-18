@@ -9,13 +9,12 @@ import '../data/db/database.dart';
 import '../data/models/tempo.dart';
 import '../data/repo/library_repository.dart';
 import '../providers.dart';
+import 'home_shell.dart';
 import 'import_sheet.dart';
-import 'player_screen.dart';
 import 'presets_screen.dart';
 import 'theme.dart';
 import 'widgets/artwork.dart';
 import 'widgets/common.dart';
-import 'widgets/glass.dart';
 
 enum LibraryTab {
   songs('곡'),
@@ -56,7 +55,6 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   @override
   Widget build(BuildContext context) {
     final tracksAsync = ref.watch(tracksProvider);
-    final player = ref.watch(playerControllerProvider);
 
     return Scaffold(
       backgroundColor: AppColors.bgBase,
@@ -111,7 +109,6 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
             ),
           ),
 
-          if (player.current != null) const _MiniPlayer(),
         ],
       ),
     );
@@ -256,7 +253,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     return ListView.builder(
       padding: EdgeInsets.only(
         top: 4,
-        bottom: 96 + MediaQuery.of(context).padding.bottom,
+        bottom: shellBottomInset(context, ref) + 12,
       ),
       itemCount: tracks.length,
       itemBuilder: (context, i) => TrackRow(
@@ -266,9 +263,9 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
           ref
               .read(playerControllerProvider.notifier)
               .playQueue(tracks, i);
-          Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const PlayerScreen()),
-          );
+          ref.read(activeSourceProvider.notifier).state =
+              PlaybackSource.local;
+          ref.read(shellTabProvider.notifier).state = 0;
         },
         onLongPress: () => _trackMenu(tracks[i]),
       ),
@@ -285,7 +282,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     return ListView.builder(
       padding: EdgeInsets.only(
         top: 4,
-        bottom: 96 + MediaQuery.of(context).padding.bottom,
+        bottom: shellBottomInset(context, ref) + 12,
       ),
       itemCount: keys.length,
       itemBuilder: (context, i) {
@@ -322,7 +319,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
         return ListView.builder(
           padding: EdgeInsets.only(
         top: 4,
-        bottom: 96 + MediaQuery.of(context).padding.bottom,
+        bottom: shellBottomInset(context, ref) + 12,
       ),
           itemCount: list.length,
           itemBuilder: (context, i) => ListTile(
@@ -691,108 +688,6 @@ class TrackRow extends StatelessWidget {
   }
 }
 
-class _MiniPlayer extends ConsumerWidget {
-  const _MiniPlayer();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(playerControllerProvider);
-    final controller = ref.read(playerControllerProvider.notifier);
-    final track = state.current;
-    if (track == null) return const SizedBox.shrink();
-
-    // 하단 내비게이션 바(제스처 바 포함)만큼 띄운다. 안 그러면 유리 바가
-    // 시스템 버튼에 겹친다.
-    final bottomInset = MediaQuery.of(context).padding.bottom;
-
-    return Positioned(
-      left: 12,
-      right: 12,
-      bottom: 12 + bottomInset,
-      child: GestureDetector(
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const PlayerScreen()),
-        ),
-        child: GlassSurface(
-          radius: 20,
-          blur: AppBlur.sheet,
-          opacity: 0.12,
-          height: 64,
-          child: Stack(
-            children: [
-              // 진행선은 바 안쪽 맨 위에 붙는다. 바깥에 두면 화면을 가로지르는
-              // 선 하나가 떠 있는 것처럼 보인다.
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: SizedBox(
-                  height: 2,
-                  child: FractionallySizedBox(
-                    alignment: Alignment.centerLeft,
-                    widthFactor: state.progress,
-                    child: Container(color: AppColors.accent),
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Row(
-                  children: [
-                  Artwork(track: track, size: 40, radius: 8),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          track.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            height: 18 / 13,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.t1,
-                          ),
-                        ),
-                        Text(
-                          track.artist,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppText.small,
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: Icon(
-                      state.playing ? Icons.pause : Icons.play_arrow,
-                      size: 24,
-                      color: AppColors.t1,
-                    ),
-                    onPressed: controller.togglePlay,
-                  ),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.skip_next,
-                      size: 20,
-                      color: AppColors.t2,
-                    ),
-                    onPressed: controller.next,
-                  ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _GroupTracksScreen extends ConsumerWidget {
   const _GroupTracksScreen({required this.title, required this.tracks});
 
@@ -817,9 +712,9 @@ class _GroupTracksScreen extends ConsumerWidget {
           savedTempo: tempos[tracks[i].id],
           onTap: () {
             ref.read(playerControllerProvider.notifier).playQueue(tracks, i);
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const PlayerScreen()),
-            );
+            ref.read(activeSourceProvider.notifier).state =
+              PlaybackSource.local;
+          ref.read(shellTabProvider.notifier).state = 0;
           },
         ),
       ),
@@ -870,9 +765,9 @@ class _PlaylistScreen extends ConsumerWidget {
                 ref
                     .read(playerControllerProvider.notifier)
                     .playQueue(tracks, i);
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const PlayerScreen()),
-                );
+                ref.read(activeSourceProvider.notifier).state =
+              PlaybackSource.local;
+          ref.read(shellTabProvider.notifier).state = 0;
               },
             ),
           );

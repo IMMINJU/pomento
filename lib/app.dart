@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'ui/library_screen.dart';
+import 'ui/home_shell.dart';
 import 'ui/theme.dart';
 
 class PlayerApp extends StatelessWidget {
@@ -21,7 +21,7 @@ class PlayerApp extends StatelessWidget {
       title: 'Pomento',
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
-      home: const LibraryScreen(),
+      home: const HomeShell(),
     );
   }
 }
