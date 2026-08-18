@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/app_settings.dart';
+import '../models/gesture_settings.dart';
 
 /// 조작 단위 설정을 SharedPreferences에 담는다.
 ///
@@ -20,6 +22,7 @@ class SettingsController extends StateNotifier<AppSettings> {
   static const _kNudge = 'settings.nudgePercent';
   static const _kGestureHint = 'settings.showGestureHint';
   static const _kKeepScreenOn = 'settings.keepScreenOn';
+  static const _kGestures = 'settings.gestures';
 
   SharedPreferences? _prefs;
 
@@ -45,6 +48,7 @@ class SettingsController extends StateNotifier<AppSettings> {
           p.getBool(_kGestureHint) ?? AppSettings.defaults.showGestureHint,
       keepScreenOn:
           p.getBool(_kKeepScreenOn) ?? AppSettings.defaults.keepScreenOn,
+      gestures: _readGestures(p),
     );
   }
 
@@ -81,6 +85,23 @@ class SettingsController extends StateNotifier<AppSettings> {
   void setShowGestureHint(bool v) {
     state = state.copyWith(showGestureHint: v);
     _prefs?.setBool(_kGestureHint, v);
+  }
+
+  static GestureSettings _readGestures(SharedPreferences p) {
+    final raw = p.getString(_kGestures);
+    if (raw == null) return GestureSettings.defaults;
+    try {
+      return GestureSettings.fromJson(
+        jsonDecode(raw) as Map<String, dynamic>,
+      );
+    } catch (_) {
+      return GestureSettings.defaults;
+    }
+  }
+
+  void setGestures(GestureSettings g) {
+    state = state.copyWith(gestures: g);
+    _prefs?.setString(_kGestures, jsonEncode(g.toJson()));
   }
 
   void setKeepScreenOn(bool v) {

@@ -1,3 +1,5 @@
+import 'gesture_settings.dart';
+
 /// 속도 슬라이더가 훑는 폭.
 ///
 /// DJ 피치 페이더가 ±8%인 이유와 같다. 1.0 근처만 쓰는 사람에게 0.5~2.0
@@ -30,6 +32,7 @@ class AppSettings {
     this.nudgePercent = 2.0,
     this.showGestureHint = true,
     this.keepScreenOn = false,
+    this.gestures = GestureSettings.defaults,
   });
 
   static const AppSettings defaults = AppSettings();
@@ -58,6 +61,9 @@ class AppSettings {
   /// 앱을 보고 있는 동안 화면이 꺼지지 않게 할지.
   final bool keepScreenOn;
 
+  /// 제스쳐 배치.
+  final GestureSettings gestures;
+
   static const List<double> speedStepChoices = [0.01, 0.02, 0.05, 0.10];
   static const List<int> pitchStepChoices = [1, 5, 10, 50, 100];
   static const List<int> seekChoices = [3, 5, 10, 15, 30, 60];
@@ -72,6 +78,7 @@ class AppSettings {
     double? nudgePercent,
     bool? showGestureHint,
     bool? keepScreenOn,
+    GestureSettings? gestures,
   }) =>
       AppSettings(
         speedStep: speedStep ?? this.speedStep,
@@ -82,6 +89,7 @@ class AppSettings {
         nudgePercent: nudgePercent ?? this.nudgePercent,
         showGestureHint: showGestureHint ?? this.showGestureHint,
         keepScreenOn: keepScreenOn ?? this.keepScreenOn,
+        gestures: gestures ?? this.gestures,
       );
 
   @override
@@ -94,7 +102,8 @@ class AppSettings {
       other.speedRange == speedRange &&
       other.nudgePercent == nudgePercent &&
       other.showGestureHint == showGestureHint &&
-      other.keepScreenOn == keepScreenOn;
+      other.keepScreenOn == keepScreenOn &&
+      identical(other.gestures, gestures);
 
   @override
   int get hashCode => Object.hash(
@@ -106,5 +115,6 @@ class AppSettings {
         nudgePercent,
         showGestureHint,
         keepScreenOn,
+        gestures,
       );
 }
