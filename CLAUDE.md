@@ -268,6 +268,20 @@ Client ID는 `--dart-define=SPOTIFY_CLIENT_ID=...`로 넣거나 설정 화면에
 - 사용자 `product` 필드 제거. API로 상대의 Premium 여부를 알 수 없다
 - Extended quota는 250k MAU 조직 요건이라 해당 없다
 
+### iOS에서 조심할 것
+
+`spotify_sdk`의 podspec은 `prepare_command`로 `spotify/ios-sdk`를 `v3.0.0`
+태그에 클론해 `SpotifyiOS.xcframework`만 남긴다. `pod install` 시점에 도는
+네트워크 작업이라 맥에서만 확인할 수 있다. 태그가 사라지면 iOS 빌드가
+통째로 깨진다.
+
+`ios/Podfile`에 최소 버전을 13.0으로 못 박고 `post_install`에서 모든 pod의
+배포 타깃을 같은 값으로 올린다. 안드로이드에서 `compileSdk`를 하위 프로젝트까지
+맞춰주는 것과 같은 이유다.
+
+뒤로 가기로 앱을 닫는 동작(`SystemNavigator.pop`)은 안드로이드에서만 돈다.
+iOS에는 뒤로 가기 버튼이 없고 앱이 스스로 종료하는 것을 애플이 막는다.
+
 ### App Remote 붙이는 법
 
 Spotify는 이 라이브러리를 Maven에 올리지 않는다. `android/spotify-app-remote/`
@@ -310,8 +324,12 @@ python tool/install_icons.py
 
 - Smart Lists(최다 재생·최근 재생), 라디오, 곡 식별, 가사, 비주얼라이저
 - 클라우드(Box·Dropbox·OneDrive)와 네트워크(FTP·WebDAV) 파일
-- iOS 빌드 검증. 맥이 없어서 Codemagic으로 돌릴 예정
-- iOS용 `PcmDecoder` 대응 구현 (AVAudioFile 기반)
+- iOS 빌드 검증. 맥이 없어서 Codemagic `ios-compile`로 돌릴 예정
+- **iOS에서 m4a가 안 열린다.** `PlatformDecoder`가 부르는
+  `com.pomento.app/decoder` 채널이 안드로이드에만 있다. iOS에서는
+  `MissingPluginException`을 잡아 null을 돌려주고 엔진 기본 경로로 넘어가는데,
+  `flutter_soloud`에 AAC 디코더가 없어서 그 곡은 재생에 실패한다. 크래시는
+  나지 않고 다음 곡으로 넘어간다. AVAudioFile 기반 Swift 구현이 필요하다
 - iOS에서 Spotify SDK 확인. podspec의 `prepare_command`가 xcframework를
   받는데 `pod install`이 맥에서만 돈다
 - Firestore 프리셋 동기화. 지금은 JSON 복사·붙여넣기

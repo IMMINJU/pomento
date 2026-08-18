@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -162,7 +163,10 @@ class _HomeShellState extends ConsumerState<HomeShell> {
           nav.pop();
         } else if (index != 0) {
           ref.read(shellTabProvider.notifier).state = 0;
-        } else {
+        } else if (Platform.isAndroid) {
+          // 안드로이드는 첫 화면에서 한 번 더 누르면 앱을 나가는 것이
+          // 관례다. iOS에는 뒤로 가기 버튼이 없고, 앱이 스스로 종료하는
+          // 것을 애플이 막는다. 그쪽에서는 아무것도 하지 않는다.
           SystemNavigator.pop();
         }
       },

@@ -1,0 +1,54 @@
+# Flutter 기본 Podfile에 최소 버전만 못 박았다.
+#
+# spotify_sdk의 podspec이 iOS 12를 요구하고 Runner는 13.0으로 잡혀 있다.
+# Podfile이 없으면 CocoaPods가 기본값을 쓰면서 경고를 쏟고, 어떤 버전으로
+# 풀렸는지 빌드마다 달라진다. Codemagic에서 결과를 재현하려면 여기 적어둬야
+# 한다.
+platform :ios, '13.0'
+
+# CocoaPods analytics sends network stats synchronously affecting flutter build latency.
+ENV['COCOAPODS_DISABLE_STATS'] = 'true'
+
+project 'Runner', {
+  'Debug' => :debug,
+  'Profile' => :release,
+  'Release' => :release,
+}
+
+def flutter_root
+  generated_xcode_build_settings_path = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
+  unless File.exist?(generated_xcode_build_settings_path)
+    raise "#{generated_xcode_build_settings_path} must exist. If you're running pod install manually, make sure flutter pub get is executed first"
+  end
+
+  File.foreach(generated_xcode_build_settings_path) do |line|
+    matches = line.match(/FLUTTER_ROOT\=(.*)/)
+    return matches[1].strip if matches
+  end
+  raise "FLUTTER_ROOT not found in #{generated_xcode_build_settings_path}. Try deleting Generated.xcconfig, then run flutter pub get"
+end
+
+require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
+
+flutter_ios_podfile_setup
+
+target 'Runner' do
+  use_frameworks!
+
+  flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+  target 'RunnerTests' do
+    inherit! :search_paths
+  end
+end
+
+post_install do |installer|
+  installer.pods_project.targets.each do |target|
+    flutter_additional_ios_build_settings(target)
+    target.build_configurations.each do |config|
+      # 플러그인마다 배포 타깃을 자기 값으로 박아둔다. 그중 Runner보다 낮은
+      # 것이 있으면 Xcode가 경고를 쏟는다. 안드로이드에서 compileSdk를
+      # 맞춰주는 것과 같은 이유로 여기서 한 번에 올린다.
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
+    end
+  end
+end
