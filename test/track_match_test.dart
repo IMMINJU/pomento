@@ -22,6 +22,17 @@ void main() {
       expect(normalizeTitle('Track ft Someone'), 'track');
     });
 
+    test('유튜브 꼬리표를 지운다', () {
+      expect(normalizeTitle("'The Wolf' [Official Video]"), 'the wolf');
+      expect(normalizeTitle('Song (Official Music Video)'), 'song');
+      expect(normalizeTitle('Song (Official Audio)'), 'song');
+    });
+
+    test('악센트를 벗긴다', () {
+      expect(normalizeArtist('SIAMÉS'), 'siames');
+      expect(normalizeTitle('Café'), 'cafe');
+    });
+
     test('한글 제목은 그대로 남는다', () {
       expect(normalizeTitle('밤편지'), '밤편지');
     });
@@ -103,6 +114,16 @@ void main() {
         artist: 'Radiohead',
       );
       expect(m, isNull);
+    });
+
+    test('유튜브에서 받은 파일도 같은 곡으로 붙는다', () {
+      final m = bestMatch(
+        [MatchKey<String>('a', "'The Wolf' [Official Video]", 'SIAMÉS')],
+        title: 'The Wolf',
+        artist: 'SIAMES',
+      );
+      expect(m, isNotNull);
+      expect(m!.confidence, MatchConfidence.strong);
     });
 
     test('빈 색인에서는 아무것도 안 나온다', () {

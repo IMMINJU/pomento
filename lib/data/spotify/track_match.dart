@@ -22,15 +22,75 @@ const _dropInParens = [
   'mono',
   'stereo',
   'anniversary',
+  // 유튜브에서 받은 파일에 흔히 붙는 꼬리표. 파일 제목의 절반이 이것일
+  // 때가 있어서 안 지우면 같은 곡을 못 알아본다.
+  'official',
+  'music video',
+  'lyric video',
+  'lyrics video',
+  'audio',
+  'visualizer',
+  'hd',
+  'hq',
+  'm/v',
 ];
 
 final _parens = RegExp(r'[\(\[][^\)\]]*[\)\]]');
-final _featuring = RegExp(r'\s+(feat\.?|ft\.?|featuring)\s+.*$', caseSensitive: false);
+
+/// 라틴 문자에 붙은 악센트를 벗긴다.
+///
+/// `SIAMÉS`와 `SIAMES`가 다른 아티스트로 갈린다. 정규화가 글자를 통째로
+/// 지워버려서 길이가 달라지고 닮은 정도가 뚝 떨어진다.
+const _diacritics = {
+  'à': 'a',
+  'á': 'a',
+  'â': 'a',
+  'ã': 'a',
+  'ä': 'a',
+  'å': 'a',
+  'è': 'e',
+  'é': 'e',
+  'ê': 'e',
+  'ë': 'e',
+  'ì': 'i',
+  'í': 'i',
+  'î': 'i',
+  'ï': 'i',
+  'ò': 'o',
+  'ó': 'o',
+  'ô': 'o',
+  'õ': 'o',
+  'ö': 'o',
+  'ø': 'o',
+  'ù': 'u',
+  'ú': 'u',
+  'û': 'u',
+  'ü': 'u',
+  'ñ': 'n',
+  'ç': 'c',
+  'ý': 'y',
+  'ÿ': 'y',
+  'ß': 'ss',
+  'æ': 'ae',
+};
+
+String _fold(String s) {
+  final b = StringBuffer();
+  for (final ch in s.split('')) {
+    b.write(_diacritics[ch] ?? ch);
+  }
+  return b.toString();
+}
+
+final _featuring = RegExp(
+  r'\s+(feat\.?|ft\.?|featuring)\s+.*$',
+  caseSensitive: false,
+);
 final _nonWord = RegExp(r'[^0-9a-z가-힣ㄱ-ㅎㅏ-ㅣ]+');
 
 /// 비교용으로 다듬은 문자열.
 String normalizeTitle(String raw) {
-  var s = raw.toLowerCase();
+  var s = _fold(raw.toLowerCase());
 
   // 괄호 안이 판본 표기면 통째로 지운다. 그 밖의 괄호는 남긴다.
   s = s.replaceAllMapped(_parens, (m) {
@@ -52,7 +112,7 @@ String normalizeTitle(String raw) {
 
 /// 아티스트는 여러 명이 쉼표로 붙는 일이 잦아서 첫 사람만 본다.
 String normalizeArtist(String raw) {
-  var s = raw.toLowerCase();
+  var s = _fold(raw.toLowerCase());
   s = s.split(RegExp(r'[,;&/]|\sfeat\.?\s|\sft\.?\s|\swith\s')).first;
   s = s.replaceAll(_nonWord, ' ').trim();
   // 영어권 밴드 이름 앞의 관사는 있는 쪽과 없는 쪽이 섞인다.
@@ -100,10 +160,10 @@ enum MatchConfidence {
   loose;
 
   String get label => switch (this) {
-        MatchConfidence.exact => 'LOCAL',
-        MatchConfidence.strong => 'LOCAL',
-        MatchConfidence.loose => 'LOCAL?',
-      };
+    MatchConfidence.exact => 'LOCAL',
+    MatchConfidence.strong => 'LOCAL',
+    MatchConfidence.loose => 'LOCAL?',
+  };
 }
 
 class TrackMatch<T> {
@@ -120,8 +180,8 @@ class TrackMatch<T> {
 /// 버벅인다. 라이브러리를 읽을 때 한 번만 만든다.
 class MatchKey<T> {
   MatchKey(this.track, String title, String artist, {this.isrc})
-      : title = normalizeTitle(title),
-        artist = normalizeArtist(artist);
+    : title = normalizeTitle(title),
+      artist = normalizeArtist(artist);
 
   final T track;
   final String title;
