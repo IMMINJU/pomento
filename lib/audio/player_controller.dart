@@ -118,6 +118,12 @@ class PlayerController extends StateNotifier<PlayerState> {
   final LibraryRepository _repo;
   final PlayerAudioHandler? _handler;
 
+  /// 곡이 끝났을 때 다음 곡으로 넘어가도 되는지 묻는다.
+  ///
+  /// 참을 돌려주면 여기서 멈춘다. 슬립 타이머의 "이 곡까지"가 쓴다. 타이머를
+  /// 오디오 계층에 직접 넣지 않으려고 고리만 뚫어둔다.
+  bool Function()? shouldStopAfterTrack;
+
   final AudioEngine _engine = AudioEngine.instance;
 
   Timer? _ticker;
@@ -313,6 +319,11 @@ class PlayerController extends StateNotifier<PlayerState> {
   }
 
   Future<void> _onFinished() async {
+    if (shouldStopAfterTrack?.call() ?? false) {
+      pause();
+      seek(Duration.zero);
+      return;
+    }
     if (state.repeat == RepeatMode.one) {
       // 엔진이 반복을 못 거는 경우(플랫폼 디코더로 트는 곡)에는 다시 연다.
       if (_engine.supportsEngineLooping) return;
@@ -405,6 +416,44 @@ class PlayerController extends StateNotifier<PlayerState> {
     } else {
       clearLoop();
     }
+  }
+
+  /// 시작점만 따로 찍는다.
+  ///
+  /// 한 버튼을 두 번 눌러 A와 B를 찍는 방식은 지금 어느 쪽을 찍는 차례인지
+  /// 화면만 보고 알 수 없다. 두 버튼으로 나누면 각각 다시 찍을 수도 있다.
+  void setLoopA([Duration? at]) {
+    final a = at ?? state.position;
+    final b = state.loopB;
+    if (b != null && a >= b) {
+      // 끝점보다 뒤를 찍으면 끝점을 버린다. 뒤바꾸면 사용자가 방금 찍은
+      // 자리가 시작점이 아니게 되어 더 헷갈린다.
+      state = state.copyWith(clearLoop: true).copyWith(loopA: a);
+    } else {
+      state = state.copyWith(loopA: a);
+    }
+    _engine.setLoopRegion(state.loopA, state.loopB);
+  }
+
+  void setLoopB([Duration? at]) {
+    final b = at ?? state.position;
+    final a = state.loopA;
+    if (a == null) {
+      // 시작점이 없으면 곡 처음부터로 본다.
+      state = state.copyWith(loopA: Duration.zero, loopB: b);
+    } else if (b <= a) {
+      return;
+    } else {
+      state = state.copyWith(loopB: b);
+    }
+    _engine.setLoopRegion(state.loopA, state.loopB);
+  }
+
+  /// 반복 구간의 시작으로 되돌린다. 방금 놓친 마디를 다시 듣는 데 쓴다.
+  void restartLoop() {
+    final a = state.loopA;
+    if (a == null) return;
+    seek(a);
   }
 
   void clearLoop() {
