@@ -182,7 +182,7 @@ class SpotifyPlayerView extends ConsumerWidget {
               onPressed: () {
                 ref.read(activeSourceProvider.notifier).state =
                     PlaybackSource.local;
-                ref.read(shellTabProvider.notifier).state = 1;
+                openLibraryScreen(context);
               },
             ),
           ],

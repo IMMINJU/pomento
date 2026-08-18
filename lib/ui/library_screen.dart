@@ -116,9 +116,16 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
 
   Widget _header() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 12, 12, 0),
+      padding: const EdgeInsets.fromLTRB(4, 6, 12, 0),
       child: Row(
         children: [
+          // 이제 탭이 아니라 재생 화면 위에 쌓이는 화면이다. 돌아갈 길이
+          // 있어야 한다.
+          IconButton(
+            icon: const Icon(Icons.chevron_left, size: 28,
+                color: AppColors.t1),
+            onPressed: () => Navigator.of(context).maybePop(),
+          ),
           if (_searching)
             Expanded(
               child: TextField(
@@ -265,7 +272,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               .playQueue(tracks, i);
           ref.read(activeSourceProvider.notifier).state =
               PlaybackSource.local;
-          ref.read(shellTabProvider.notifier).state = 0;
+          backToPlayer(context);
         },
         onLongPress: () => _trackMenu(tracks[i]),
       ),
@@ -714,7 +721,7 @@ class _GroupTracksScreen extends ConsumerWidget {
             ref.read(playerControllerProvider.notifier).playQueue(tracks, i);
             ref.read(activeSourceProvider.notifier).state =
               PlaybackSource.local;
-          ref.read(shellTabProvider.notifier).state = 0;
+          backToPlayer(context);
           },
         ),
       ),
@@ -767,7 +774,7 @@ class _PlaylistScreen extends ConsumerWidget {
                     .playQueue(tracks, i);
                 ref.read(activeSourceProvider.notifier).state =
               PlaybackSource.local;
-          ref.read(shellTabProvider.notifier).state = 0;
+          backToPlayer(context);
               },
             ),
           );

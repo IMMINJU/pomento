@@ -7,9 +7,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../audio/player_controller.dart';
+import '../data/models/gesture_settings.dart';
 import '../data/models/tempo.dart';
 import '../providers.dart';
-import 'effects_screen.dart';
 import 'home_shell.dart';
 import 'practice_screen.dart';
 import 'spotify_player.dart';
@@ -17,14 +17,18 @@ import 'theme.dart';
 import 'widgets/artwork.dart';
 import 'widgets/artwork_tone.dart';
 import 'widgets/common.dart';
+import 'widgets/gesture_layer.dart';
 import 'widgets/glass.dart';
 
 /// 재생 컨트롤 패널을 펼쳐 두었는지.
 ///
-/// Capriccio는 상단 바의 둥근 버튼으로 이 패널을 여닫는다. 열어두면 앨범아트
-/// 아래에 구간 반복, 점프 탐색, 속도, 피치가 한 줄씩 붙는다. 화면을 옮기지
-/// 않고 그 자리에서 값을 바꾸는 것이 이 앱의 성격이다.
-final controlPanelOpenProvider = StateProvider<bool>((ref) => true);
+/// 열면 앨범아트 아래에 구간 반복, 점프 탐색, 속도, 피치가 한 줄씩 붙는다.
+/// 화면을 옮기지 않고 그 자리에서 값을 바꾼다.
+///
+/// 기본은 접어둔다. 늘 펼쳐두면 앨범아트가 작아지고, 무엇보다 피치와 구간
+/// 반복을 스치듯 눌러 잘못 걸리는 일이 잦다. 앨범아트를 길게 누르거나 상단
+/// 바의 둥근 버튼으로 연다.
+final controlPanelOpenProvider = StateProvider<bool>((ref) => false);
 
 class PlayerScreen extends ConsumerStatefulWidget {
   const PlayerScreen({super.key});
@@ -34,10 +38,127 @@ class PlayerScreen extends ConsumerStatefulWidget {
 }
 
 class _PlayerScreenState extends ConsumerState<PlayerScreen> {
-  // 제스처 중 임시로 쌓는 값. 손을 뗄 때 한 번만 저장한다.
+  // 두 손가락 제스처 중 임시로 쌓는 값. 손을 뗄 때 한 번만 저장한다.
   double? _dragSpeed;
   double? _dragPitch;
   bool _twoFinger = false;
+
+  /// 한 손가락 이어 끌기를 시작할 때의 값. 끌기가 끝나면 버린다.
+  double? _dragBase;
+
+  /// 곡이 바뀔 때 자켓이 어느 쪽으로 미끄러질지. 다음 곡이면 왼쪽으로 나간다.
+  int _slideDir = 1;
+
+
+  /// 설정에 걸어둔 동작 하나를 실행한다.
+  void _run(GestureAction action) {
+    final c = ref.read(playerControllerProvider.notifier);
+    final state = ref.read(playerControllerProvider);
+    final s = ref.read(settingsProvider);
+
+    switch (action) {
+      case GestureAction.none:
+        return;
+      case GestureAction.playPause:
+        c.togglePlay();
+      case GestureAction.previous:
+        _slideDir = -1;
+        c.previous();
+      case GestureAction.next:
+        _slideDir = 1;
+        c.next();
+      case GestureAction.seekBack1:
+        c.seekBy(Duration(seconds: -s.seekShortSeconds));
+      case GestureAction.seekBack2:
+        c.seekBy(Duration(seconds: -s.seekLongSeconds));
+      case GestureAction.seekForward1:
+        c.seekBy(Duration(seconds: s.seekShortSeconds));
+      case GestureAction.seekForward2:
+        c.seekBy(Duration(seconds: s.seekLongSeconds));
+      case GestureAction.volumeUp:
+        c.setVolume((state.volume + 0.05).clamp(0.0, 1.0));
+      case GestureAction.volumeDown:
+        c.setVolume((state.volume - 0.05).clamp(0.0, 1.0));
+      case GestureAction.speedUp:
+        c.setSpeed(
+          _snapSpeed(state.tempo.speed + s.speedStep, s.speedStep),
+          commit: true,
+        );
+      case GestureAction.speedDown:
+        c.setSpeed(
+          _snapSpeed(state.tempo.speed - s.speedStep, s.speedStep),
+          commit: true,
+        );
+      case GestureAction.pitchUp:
+        c.setPitchCents(
+          (state.tempo.pitchCents + s.pitchStepCents).clamp(-200.0, 200.0),
+          commit: true,
+        );
+      case GestureAction.pitchDown:
+        c.setPitchCents(
+          (state.tempo.pitchCents - s.pitchStepCents).clamp(-200.0, 200.0),
+          commit: true,
+        );
+      case GestureAction.toggleQueue:
+        showQueueSheet(context);
+      case GestureAction.toggleControls:
+        final open = ref.read(controlPanelOpenProvider);
+        ref.read(controlPanelOpenProvider.notifier).state = !open;
+      case GestureAction.toggleLoop:
+        if (state.loopA == null) {
+          c.setLoopA();
+        } else if (state.loopB == null) {
+          c.setLoopB();
+        } else {
+          c.clearLoop();
+        }
+    }
+    HapticFeedback.selectionClick();
+  }
+
+  static double _snapSpeed(double v, double step) {
+    final next = (v.clamp(0.5, 2.0) * 1000).round() / 1000;
+    return (next - 1.0).abs() < step * 0.4 ? 1.0 : next;
+  }
+
+  /// 손가락을 붙인 채 끌 때. 화면 너비의 절반을 끌면 한 단위 움직인다.
+  void _drag(DragProgress p) {
+    final c = ref.read(playerControllerProvider.notifier);
+    final state = ref.read(playerControllerProvider);
+    final span = MediaQuery.of(context).size.width / 2;
+    final t = (p.delta / span).clamp(-1.5, 1.5);
+
+    if (p.done) {
+      if (_dragBase != null &&
+          (p.action == DragAction.speed || p.action == DragAction.pitch)) {
+        // 끌기가 끝난 자리를 한 번만 저장한다.
+        c.setTempo(state.tempo, commit: true);
+      }
+      _dragBase = null;
+      return;
+    }
+
+    switch (p.action) {
+      case DragAction.none:
+        return;
+      case DragAction.seek:
+        _dragBase ??= state.position.inMilliseconds.toDouble();
+        final total = state.duration.inMilliseconds;
+        if (total <= 0) return;
+        // 곡 길이의 4분의 1을 화면 절반에 대응시킨다.
+        final at = (_dragBase! + t * total * 0.25).clamp(0.0, total.toDouble());
+        c.seek(Duration(milliseconds: at.round()));
+      case DragAction.volume:
+        _dragBase ??= state.volume;
+        c.setVolume((_dragBase! + t * 0.8).clamp(0.0, 1.0));
+      case DragAction.speed:
+        _dragBase ??= state.tempo.speed;
+        c.setSpeed((_dragBase! + t * 0.25).clamp(0.5, 2.0));
+      case DragAction.pitch:
+        _dragBase ??= state.tempo.pitchCents;
+        c.setPitchCents((_dragBase! + t * 150).clamp(-200.0, 200.0));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -65,11 +186,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
             child: EmptyHint(
               icon: Icons.music_note,
               title: '재생 중인 곡이 없습니다',
-              body: '라이브러리 탭에서 곡을 고르세요',
+              body: '아래 폴더 버튼으로 곡을 고르세요',
               action: AccentButton(
                 label: '라이브러리로',
-                onPressed: () =>
-                    ref.read(shellTabProvider.notifier).state = 1,
+                onPressed: () => openLibraryScreen(context),
               ),
             ),
           ),
@@ -136,9 +256,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                 }
                 _twoFinger = false;
               },
-              onSwipeLeft: controller.next,
-              onSwipeRight: controller.previous,
-              onDoubleTap: controller.togglePlay,
               onTwoFingerDoubleTap: () {
                 controller.setTempoMode(
                   state.tempo.mode == TempoMode.linked
@@ -147,42 +264,94 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                 );
                 HapticFeedback.mediumImpact();
               },
-              child: Column(
+              child: ConfigurableGestureLayer(
+                settings: ref.watch(
+                  settingsProvider.select((s) => s.gestures),
+                ),
+                onAction: _run,
+                onDrag: _drag,
+                child: Column(
                 children: [
                   _TopBar(state: state, tone: tone),
                   Expanded(
                     child: LayoutBuilder(
                       builder: (context, box) {
                         final size =
-                            math.min(box.maxWidth - 100, box.maxHeight - 8);
-                        // 패널을 펼치면 자리가 좁아진다. 억지로 밀어 넣지
-                        // 않고 접는다.
+                            math.min(box.maxWidth - 40, box.maxHeight - 8);
                         if (size < 96) return const SizedBox.shrink();
-                        return Center(
-                          child: Artwork(
-                            track: track,
-                            size: size,
-                            radius: 20,
-                          ),
+                        return Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            // 곡이 바뀌면 옆으로 미끄러진다. 쓸어 넘긴
+                            // 방향과 같은 쪽으로 나가야 손짓과 화면이
+                            // 맞물린다.
+                            AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 280),
+                              switchInCurve: Curves.easeOutCubic,
+                              switchOutCurve: Curves.easeInCubic,
+                              transitionBuilder: (child, animation) {
+                                final incoming =
+                                    (child.key as ValueKey<int>?)?.value ==
+                                        track.id;
+                                final from = incoming ? _slideDir : -_slideDir;
+                                return SlideTransition(
+                                  position: Tween<Offset>(
+                                    begin: Offset(from * 0.3, 0),
+                                    end: Offset.zero,
+                                  ).animate(animation),
+                                  child: FadeTransition(
+                                    opacity: animation,
+                                    child: child,
+                                  ),
+                                );
+                              },
+                              child: Artwork(
+                                key: ValueKey<int>(track.id),
+                                track: track,
+                                size: size,
+                                radius: 20,
+                              ),
+                            ),
+                            // 컨트롤은 앨범아트 위에 얹는다. 아래로 밀어내면
+                            // 자켓이 작아진다. 자켓이 제스쳐를 받는 자리이자
+                            // 이 화면에서 볼 것이라 크기를 지킨다.
+                            if (panelOpen)
+                              Positioned(
+                                left: 4,
+                                right: 4,
+                                bottom: 4,
+                                child: _ControlPanel(
+                                  state: state,
+                                  controller: controller,
+                                  tone: tone,
+                                ),
+                              ),
+                          ],
                         );
                       },
                     ),
                   ),
                   const SizedBox(height: 14),
-                  if (panelOpen)
-                    _ControlPanel(
-                      state: state,
-                      controller: controller,
-                      tone: tone,
-                    ),
-                  if (panelOpen) const SizedBox(height: 16),
                   _TitleRow(state: state, controller: controller),
                   const SizedBox(height: 12),
                   _Progress(state: state, controller: controller),
                   const SizedBox(height: 16),
-                  _Transport(state: state, controller: controller, tone: tone),
+                  _Transport(
+                    state: state,
+                    controller: controller,
+                    tone: tone,
+                    onPrevious: () {
+                      _slideDir = -1;
+                      controller.previous();
+                    },
+                    onNext: () {
+                      _slideDir = 1;
+                      controller.next();
+                    },
+                  ),
                   SizedBox(height: bottomInset + 8),
                 ],
+                ),
               ),
             ),
           ),
@@ -253,12 +422,6 @@ class _TopBar extends ConsumerWidget {
             ),
             const SizedBox(width: 12),
             _RoundIcon(
-              icon: Icons.sort,
-              tone: tone,
-              onTap: () => showQueueSheet(context),
-            ),
-            const SizedBox(width: 8),
-            _RoundIcon(
               icon: Icons.compare_arrows,
               tone: tone,
               filled: panelOpen,
@@ -267,82 +430,23 @@ class _TopBar extends ConsumerWidget {
                   .state = !panelOpen,
             ),
             const Spacer(),
-            IconButton(
-              icon: const Icon(Icons.more_vert, size: 24, color: AppColors.t2),
-              onPressed: () => showMoreSheet(context),
+            // 자주 쓰지 않는 것은 위로 올린다. 아래쪽은 재생 조작 몫이다.
+            _RoundIcon(
+              icon: Icons.search,
+              tone: tone,
+              onTap: () => openSearchScreen(context),
+            ),
+            const SizedBox(width: 8),
+            _RoundIcon(
+              icon: Icons.settings,
+              tone: tone,
+              onTap: () => openSettingsScreen(context),
             ),
           ],
         ),
       ),
     );
   }
-}
-
-/// 상단 바의 `⋮`. 자주 쓰지 않지만 어딘가에는 있어야 하는 것들.
-void showMoreSheet(BuildContext context) {
-  showModalBottomSheet<void>(
-    context: context,
-    backgroundColor: const Color(0xFF14141C),
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-    ),
-    builder: (sheet) => SafeArea(
-      child: Consumer(
-        builder: (context, ref, _) {
-          final timer = ref.watch(sleepTimerProvider);
-          final settings = ref.watch(settingsProvider);
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 12),
-              const SheetHandle(),
-              const SizedBox(height: 8),
-              ListTile(
-                leading: Icon(
-                  Icons.bedtime_outlined,
-                  color: timer.isOn ? AppColors.accent : AppColors.t2,
-                ),
-                title: const Text('슬립 타이머', style: AppText.body),
-                trailing: Text(
-                  timer.label,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: timer.isOn ? AppColors.accent : AppColors.t3,
-                    fontFeatures: tabularFigures,
-                  ),
-                ),
-                onTap: () {
-                  Navigator.pop(sheet);
-                  showSleepTimerSheet(context);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.tune, color: AppColors.t2),
-                title: const Text('연습 자세히', style: AppText.body),
-                subtitle: const Text('슬라이더와 숫자칸으로 정확히 맞춥니다',
-                    style: AppText.small),
-                onTap: () {
-                  Navigator.pop(sheet);
-                  openPracticeScreen(context);
-                },
-              ),
-              SwitchListTile(
-                secondary: const Icon(Icons.brightness_high_outlined,
-                    color: AppColors.t2),
-                title: const Text('화면 꺼짐 방지', style: AppText.body),
-                subtitle: const Text('가사를 보거나 연주를 따라갈 때',
-                    style: AppText.small),
-                activeThumbColor: AppColors.accent,
-                value: settings.keepScreenOn,
-                onChanged: ref.read(settingsProvider.notifier).setKeepScreenOn,
-              ),
-              const SizedBox(height: 8),
-            ],
-          );
-        },
-      ),
-    ),
-  );
 }
 
 void showSleepTimerSheet(BuildContext context) {
@@ -573,16 +677,13 @@ class _ControlPanel extends ConsumerWidget {
     final short = settings.seekShortSeconds;
     final long = settings.seekLongSeconds;
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: tone.glassOpacity),
-        borderRadius: BorderRadius.circular(AppRadius.panel),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: tone.borderBoost),
-        ),
-      ),
+    // 자켓 위에 얹으므로 유리로 만든다. 뒤에 볼 것이 있어야 블러가 성립하고,
+    // 밝은 자켓에서도 글자가 읽힌다.
+    return GlassSurface(
+      radius: AppRadius.panel,
+      blur: AppBlur.sheet,
+      opacity: tone.glassOpacity + 0.10,
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -927,11 +1028,17 @@ class _Transport extends StatelessWidget {
     required this.state,
     required this.controller,
     required this.tone,
+    required this.onPrevious,
+    required this.onNext,
   });
 
   final PlayerState state;
   final PlayerController controller;
   final ArtworkTone tone;
+
+  /// 미끄러지는 방향을 화면이 정해야 해서 바깥에서 받는다.
+  final VoidCallback onPrevious;
+  final VoidCallback onNext;
 
   @override
   Widget build(BuildContext context) {
@@ -941,18 +1048,16 @@ class _Transport extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           // Capriccio가 폴더를 놓은 자리. 곡을 고르러 가는 길이다.
-          Consumer(
-            builder: (context, ref, _) => _RoundIcon(
-              icon: Icons.folder_outlined,
-              tone: tone,
-              filled: true,
-              onTap: () => ref.read(shellTabProvider.notifier).state = 1,
-            ),
+          _RoundIcon(
+            icon: Icons.folder_outlined,
+            tone: tone,
+            filled: true,
+            onTap: () => openLibraryScreen(context),
           ),
           IconButton(
             iconSize: 30,
             icon: const Icon(Icons.skip_previous, color: AppColors.t1),
-            onPressed: controller.previous,
+            onPressed: onPrevious,
           ),
           // 카드가 이미 유리라 여기서 또 블러를 겹치지 않는다. 한 화면에
           // 유리는 두 겹까지다.
@@ -979,13 +1084,14 @@ class _Transport extends StatelessWidget {
           IconButton(
             iconSize: 30,
             icon: const Icon(Icons.skip_next, color: AppColors.t1),
-            onPressed: controller.next,
+            onPressed: onNext,
           ),
+          // 음향은 설정으로 옮겼다. 이 자리는 재생 목록이 쓴다.
           _RoundIcon(
-            icon: Icons.tune,
+            icon: Icons.queue_music,
             tone: tone,
             filled: true,
-            onTap: () => openEffectsScreen(context),
+            onTap: () => showQueueSheet(context),
           ),
         ],
       ),
@@ -1085,7 +1191,7 @@ void showQueueSheet(BuildContext context) {
                       ),
                       subtitle: Text(t.artist, style: AppText.caption),
                       onTap: () {
-                        controller.playQueue(state.queue, i);
+                        controller.playIndex(i);
                         Navigator.pop(sheetContext);
                       },
                     );
@@ -1100,19 +1206,17 @@ void showQueueSheet(BuildContext context) {
   );
 }
 
-/// 제스처를 한 곳에서 받는다.
+/// 두 손가락 동작만 받는다.
 ///
-/// 두 손가락 동작(배속·피치)과 한 손가락 동작(곡 이동)을 구분해야 해서
-/// ScaleGestureRecognizer의 pointerCount를 본다.
+/// 한 손가락은 안쪽의 ConfigurableGestureLayer가 설정대로 처리한다. 두 층을
+/// 나눈 이유는 손가락 수를 세는 일과 설정을 읽는 일이 섞이면 어느 쪽이
+/// 걸렸는지 따라가기 어려워서다.
 class _GestureLayer extends StatefulWidget {
   const _GestureLayer({
     required this.child,
     required this.onScaleStart,
     required this.onScaleUpdate,
     required this.onScaleEnd,
-    required this.onSwipeLeft,
-    required this.onSwipeRight,
-    required this.onDoubleTap,
     required this.onTwoFingerDoubleTap,
   });
 
@@ -1120,9 +1224,6 @@ class _GestureLayer extends StatefulWidget {
   final void Function(ScaleStartDetails) onScaleStart;
   final void Function(ScaleUpdateDetails, Offset delta) onScaleUpdate;
   final VoidCallback onScaleEnd;
-  final VoidCallback onSwipeLeft;
-  final VoidCallback onSwipeRight;
-  final VoidCallback onDoubleTap;
   final VoidCallback onTwoFingerDoubleTap;
 
   @override
@@ -1131,7 +1232,6 @@ class _GestureLayer extends StatefulWidget {
 
 class _GestureLayerState extends State<_GestureLayer> {
   Offset _lastFocal = Offset.zero;
-  Offset _startFocal = Offset.zero;
   int _pointers = 0;
 
   /// 한 번의 제스처 동안 동시에 닿았던 손가락의 최대 수.
@@ -1152,17 +1252,13 @@ class _GestureLayerState extends State<_GestureLayer> {
       onPointerCancel: (_) => _pointers = (_pointers - 1).clamp(0, 10),
       child: GestureDetector(
         behavior: HitTestBehavior.translucent,
+        // 한 손가락 두드림은 안쪽 층이 받는다. 여기서는 두 손가락만 본다.
         onDoubleTap: () {
-          if (_maxPointers >= 2) {
-            widget.onTwoFingerDoubleTap();
-          } else {
-            widget.onDoubleTap();
-          }
+          if (_maxPointers >= 2) widget.onTwoFingerDoubleTap();
           _maxPointers = 0;
         },
         onScaleStart: (d) {
           _lastFocal = d.focalPoint;
-          _startFocal = d.focalPoint;
           _maxPointers = d.pointerCount;
           widget.onScaleStart(d);
         },
@@ -1173,18 +1269,6 @@ class _GestureLayerState extends State<_GestureLayer> {
           widget.onScaleUpdate(d, delta);
         },
         onScaleEnd: (d) {
-          final total = _lastFocal - _startFocal;
-          // 한 손가락으로 가로로 크게 쓸면 곡을 넘긴다. 두 손가락이었다면
-          // 배속 조작이므로 곡을 넘기지 않는다.
-          if (_maxPointers <= 1 &&
-              total.dx.abs() > 80 &&
-              total.dx.abs() > total.dy.abs() * 2) {
-            if (total.dx < 0) {
-              widget.onSwipeLeft();
-            } else {
-              widget.onSwipeRight();
-            }
-          }
           widget.onScaleEnd();
           _maxPointers = 0;
         },

@@ -95,8 +95,19 @@ class _Bar extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Container(
+        // 반투명으로 두면 뒤의 목록이 그대로 비쳐서 글자가 겹친다.
+        // 블러를 걸 수도 있지만 목록 위에서 매 프레임 도는 블러는 보급형
+        // 기기에서 프레임을 깎는다.
+        decoration: const BoxDecoration(
+          color: Color(0xFF101018),
+          border: Border(top: BorderSide(color: AppColors.divider)),
+        ),
+        // Scaffold는 bottomNavigationBar에 시스템 바 여백을 넣어주지 않는다.
+        // 여기서 직접 피하지 않으면 제스처 바나 3버튼 바에 막대가 물린다.
+        child: SafeArea(
+          top: false,
+          child: SizedBox(
         height: 68,
-        color: Colors.black.withValues(alpha: 0.55),
         child: Stack(
           children: [
             // 진행선은 막대 맨 위에 붙는다.
@@ -175,6 +186,8 @@ class _Bar extends StatelessWidget {
               ),
             ),
           ],
+        ),
+          ),
         ),
       ),
     );

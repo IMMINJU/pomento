@@ -90,7 +90,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
       child: Container(
         height: 46,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
+        padding: const EdgeInsets.only(left: 6, right: 14),
         decoration: BoxDecoration(
           color: AppColors.glass,
           borderRadius: BorderRadius.circular(AppRadius.pill),
@@ -98,8 +98,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         ),
         child: Row(
           children: [
-            const Icon(Icons.search, size: 20, color: AppColors.t3),
-            const SizedBox(width: 10),
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(Icons.chevron_left, size: 24,
+                  color: AppColors.t1),
+              onPressed: () => Navigator.of(context).maybePop(),
+            ),
             Expanded(
               child: TextField(
                 controller: _text,
@@ -175,7 +179,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         body: '설정에서 Client ID를 넣으면 검색이 열립니다',
         action: AccentButton(
           label: '설정으로',
-          onPressed: () => ref.read(shellTabProvider.notifier).state = 3,
+          onPressed: () {
+            Navigator.of(context).pop();
+            openSettingsScreen(context);
+          },
         ),
       );
     }
@@ -282,7 +289,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     // 엉뚱한 검색 결과가 이어진다.
     ref.read(playerControllerProvider.notifier).playQueue([track], 0);
     ref.read(activeSourceProvider.notifier).state = PlaybackSource.local;
-    ref.read(shellTabProvider.notifier).state = 0;
+    backToPlayer(context);
   }
 
   Future<void> _playOnSpotify(SpotifyTrack t) async {
@@ -294,7 +301,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final err = ref.read(spotifySessionProvider).error;
     if (err == null) {
       ref.read(activeSourceProvider.notifier).state = PlaybackSource.spotify;
-      ref.read(shellTabProvider.notifier).state = 0;
+      backToPlayer(context);
       return;
     }
 

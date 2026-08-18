@@ -4,8 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models/app_settings.dart';
 import '../providers.dart';
 import 'effects_screen.dart';
+import 'gesture_settings_screen.dart';
 import 'home_shell.dart';
+import 'player_screen.dart';
 import 'theme.dart';
+import 'widgets/screen_header.dart';
 import 'widgets/settings_list.dart';
 
 /// 설정.
@@ -31,10 +34,7 @@ class SettingsScreen extends ConsumerWidget {
         child: ListView(
           padding: EdgeInsets.only(bottom: shellBottomInset(context, ref) + 24),
           children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 16, 20, 0),
-              child: Text('설정', style: AppText.display),
-            ),
+            const ScreenHeader(title: '설정', showBack: true),
 
             SettingsSection(
               title: '재생 컨트롤',
@@ -130,14 +130,47 @@ class SettingsScreen extends ConsumerWidget {
             ),
 
             SettingsSection(
-              title: '제스쳐와 화면',
+              title: '제스쳐',
               children: [
+                SettingsLinkRow(
+                  title: '드래그 제스쳐',
+                  description: '쓸기와 이어 끌기에 걸 동작',
+                  onTap: () => openDragGestureScreen(context),
+                ),
+                SettingsLinkRow(
+                  title: '탭 제스쳐',
+                  description: '두드림에 걸 동작',
+                  onTap: () => openTapGestureScreen(context),
+                ),
                 SettingsSwitchRow(
                   title: '제스쳐 안내 보이기',
                   description: '연습 화면 아래에 두 손가락 조작 설명을 둡니다',
                   value: s.showGestureHint,
                   onChanged: c.setShowGestureHint,
                 ),
+              ],
+            ),
+
+            SettingsSection(
+              title: '취침 타이머',
+              children: [
+                Consumer(
+                  builder: (context, ref, _) {
+                    final t = ref.watch(sleepTimerProvider);
+                    return SettingsRow(
+                      title: '취침 타이머',
+                      value: t.label,
+                      description: '정해둔 시간이 지나면 재생을 멈춥니다',
+                      onTap: () => showSleepTimerSheet(context),
+                    );
+                  },
+                ),
+              ],
+            ),
+
+            SettingsSection(
+              title: '화면',
+              children: [
                 SettingsSwitchRow(
                   title: '화면 꺼짐 방지',
                   description: '앱을 보고 있는 동안 화면이 꺼지지 않습니다',
