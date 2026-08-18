@@ -215,6 +215,18 @@ class EffectController extends StateNotifier<EffectState> {
     onTastePresetTempo?.call(p);
   }
 
+  /// 취향 층 곡선을 직접 고쳐 쓴다.
+  ///
+  /// 기기와 환경 층은 우리가 만들어 넣은 보정이라 사용자가 만지지 않는다.
+  /// 내장 프리셋을 고친 결과는 아직 저장하지 않고 상태에만 둔다. 저장은
+  /// [saveAsTastePreset]이 새 이름으로 받는다.
+  void setTasteCurve(EqCurve eq) {
+    final base = state.tastePreset;
+    if (base == null) return;
+    state = state.copyWith(tastePreset: base.copyWith(eq: eq));
+    _apply();
+  }
+
   // ── 개별 조절 ──────────────────────────────────────────────────────
 
   void setReverbWet(double v) {

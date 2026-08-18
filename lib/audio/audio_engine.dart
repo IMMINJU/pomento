@@ -62,7 +62,14 @@ class AudioEngine {
   TempoSettings? _pendingTempo;
 
   /// 엔진 EQ의 밴드 수. 30Hz~16kHz를 로그 간격으로 나눈다.
-  static const int bandCount = 10;
+  ///
+  /// 32밴드면 한 칸이 0.29옥타브다. EQ 편집에서 대역폭을 0.5옥타브까지
+  /// 좁혀도 종 모양이 뭉개지지 않는다. 10밴드였을 때는 한 칸이 0.97옥타브라
+  /// 좁은 밴드가 이웃 칸으로 번졌다. SoLoud의 상한은 64다.
+  ///
+  /// 다만 STFT 창이 1024라 44.1kHz에서 주파수 해상도가 43Hz다. 100Hz 아래
+  /// 밴드 몇 개는 같은 빈을 나눠 쓰므로 서로 구분되지 않는다.
+  static const int bandCount = 32;
 
   /// 각 밴드의 중심 주파수. 엔진 내부 계산과 같은 식이다.
   static final List<double> bandFrequencies = List.generate(bandCount, (i) {
