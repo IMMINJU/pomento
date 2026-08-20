@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/models/app_settings.dart';
@@ -33,10 +34,12 @@ class SettingsScreen extends ConsumerWidget {
         child: SafeArea(
           bottom: false,
           child: ListView(
-            padding: EdgeInsets.only(bottom: shellBottomInset(context, ref) + 24),
+            padding: EdgeInsets.only(
+              bottom: shellBottomInset(context, ref) + 24,
+            ),
             children: [
               const ScreenHeader(title: '설정', showBack: true),
-  
+
               SettingsSection(
                 title: '재생 컨트롤',
                 children: [
@@ -129,7 +132,7 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                 ],
               ),
-  
+
               SettingsSection(
                 title: '제스쳐',
                 children: [
@@ -151,7 +154,7 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                 ],
               ),
-  
+
               SettingsSection(
                 title: '취침 타이머',
                 children: [
@@ -168,7 +171,7 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                 ],
               ),
-  
+
               SettingsSection(
                 title: '화면',
                 children: [
@@ -180,7 +183,7 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                 ],
               ),
-  
+
               SettingsSection(
                 title: '음향',
                 children: [
@@ -191,11 +194,13 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                 ],
               ),
-  
+
               const SettingsSection(
                 title: 'Spotify',
                 children: [_SpotifyBlock()],
               ),
+
+              const SettingsSection(title: '정보', children: [_VersionRow()]),
             ],
           ),
         ),
@@ -204,10 +209,10 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   static String _pitchLabel(int cents) => switch (cents) {
-        100 => '1 반음',
-        50 => '반 반음',
-        _ => '$cents센트',
-      };
+    100 => '1 반음',
+    50 => '반 반음',
+    _ => '$cents센트',
+  };
 
   static String _percent(double v) =>
       '${v.toStringAsFixed(v == v.roundToDouble() ? 0 : 1)}%';
@@ -274,12 +279,14 @@ class _SpotifyBlockState extends ConsumerState<_SpotifyBlock> {
                 onPressed: () {
                   session.setClientId(_text.text);
                   FocusScope.of(context).unfocus();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('저장했습니다')),
-                  );
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(const SnackBar(content: Text('저장했습니다')));
                 },
-                child: const Text('저장',
-                    style: TextStyle(fontSize: 16, color: AppColors.accent)),
+                child: const Text(
+                  '저장',
+                  style: TextStyle(fontSize: 16, color: AppColors.accent),
+                ),
               ),
             ],
           ),
@@ -342,5 +349,34 @@ class _SpotifyBlockState extends ConsumerState<_SpotifyBlock> {
         ),
       ],
     );
+  }
+}
+
+/// 버전과 빌드번호.
+///
+/// TestFlight로 나눠 쓰면 상대가 어느 빌드를 보고 있는지 알아야 한다.
+/// 화면만 보고 말할 수 있으면 그걸 묻는 데 한 번이 덜 든다.
+class _VersionRow extends StatefulWidget {
+  const _VersionRow();
+
+  @override
+  State<_VersionRow> createState() => _VersionRowState();
+}
+
+class _VersionRowState extends State<_VersionRow> {
+  String _value = '';
+
+  @override
+  void initState() {
+    super.initState();
+    PackageInfo.fromPlatform().then((info) {
+      if (!mounted) return;
+      setState(() => _value = '${info.version} (${info.buildNumber})');
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SettingsInfoRow(title: '버전', value: _value);
   }
 }

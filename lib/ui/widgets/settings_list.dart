@@ -28,7 +28,11 @@ class SettingsSection extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(
-              AppSpace.gutter, 28, AppSpace.gutter, 10),
+            AppSpace.gutter,
+            28,
+            AppSpace.gutter,
+            10,
+          ),
           child: Text(title, style: AppText.label),
         ),
         ...children,
@@ -55,7 +59,9 @@ class _Row extends StatelessWidget {
   Widget build(BuildContext context) {
     final body = Padding(
       padding: const EdgeInsets.symmetric(
-          horizontal: AppSpace.gutter, vertical: 18),
+        horizontal: AppSpace.gutter,
+        vertical: 18,
+      ),
       child: Row(
         children: [
           Expanded(
@@ -80,6 +86,32 @@ class _Row extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(onTap: onTap, child: body),
+    );
+  }
+}
+
+/// 읽기만 하는 행. 누를 수 없으니 화살표도 밑줄도 없다.
+class SettingsInfoRow extends StatelessWidget {
+  const SettingsInfoRow({
+    super.key,
+    required this.title,
+    required this.value,
+    this.description,
+  });
+
+  final String title;
+  final String value;
+  final String? description;
+
+  @override
+  Widget build(BuildContext context) {
+    return _Row(
+      title: title,
+      description: description,
+      trailing: Text(
+        value,
+        style: AppText.num.copyWith(fontSize: 14, color: AppColors.ink3),
+      ),
     );
   }
 }
@@ -249,8 +281,9 @@ Future<T?> showChoiceDialog<T>({
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: AppSpace.gutter),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpace.gutter,
+                  ),
                   child: Text(title, style: AppText.title),
                 ),
                 const SizedBox(height: 16),
@@ -266,7 +299,9 @@ Future<T?> showChoiceDialog<T>({
                               onTap: () => Navigator.pop(dialogContext, c),
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: AppSpace.gutter, vertical: 15),
+                                  horizontal: AppSpace.gutter,
+                                  vertical: 15,
+                                ),
                                 alignment: Alignment.centerLeft,
                                 child: Text(
                                   label(c),

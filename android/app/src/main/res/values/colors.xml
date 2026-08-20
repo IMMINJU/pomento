@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- lib/ui/theme.dart의 AppColors.paper. PaperBackground가 칠하는 밑색과
+         같아야 앱이 뜨는 순간 색이 안 바뀐다. -->
+    <color name="launch_background">#F6F7F4</color>
+</resources>
