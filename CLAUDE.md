@@ -306,7 +306,7 @@ python tool/make_paper.py                                  # 종이 질감
 `flutter_launcher_icons`는 쓰지 않는다. 다른 의존성과 물려서 0.9.3으로 내려앉는다.
 
 `compileSdk`는 `android/build.gradle.kts`에서 하위 프로젝트까지 37로 맞춘다.
-`permission_handler`가 37을 요구하는데 `audiotags`는 31에 묶여 있어서다. 이 블록은
+플러그인이 저마다 낮은 값을 박아두면 최신 androidx와 충돌한다. 이 블록은
 `evaluationDependsOn`보다 **먼저** 와야 한다.
 
 ## 글쓰기

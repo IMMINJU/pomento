@@ -1,7 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 
-import 'package:audiotags/audiotags.dart';
+import 'package:audio_metadata_reader/audio_metadata_reader.dart';
 import 'package:crypto/crypto.dart';
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
@@ -207,9 +208,14 @@ class MediaImporter {
     String? fallbackAlbum,
     int? fallbackDurationMs,
   }) async {
-    Tag? tag;
+    // 파일을 직접 파싱한다. 통째로 읽고 파는 일이라 격리에서 돌린다.
+    // 가져오기는 한 번에 수백 곡을 훑을 수 있어서, 본 격리에서 하면
+    // 그동안 화면이 멈춘다.
+    AudioMetadata? tag;
     try {
-      tag = await AudioTags.read(readFrom);
+      tag = await Isolate.run(
+        () => readMetadata(File(readFrom), getImage: true),
+      );
     } catch (e) {
       debugPrint('태그 읽기 실패 [$readFrom]: $e');
     }
@@ -219,14 +225,19 @@ class MediaImporter {
       fallbackTitle,
       p.basenameWithoutExtension(readFrom),
     ]);
-    final artist =
-        _firstNonEmpty([tag?.trackArtist, fallbackArtist, '알 수 없는 아티스트']);
+    final artist = _firstNonEmpty([
+      tag?.artist,
+      fallbackArtist,
+      '알 수 없는 아티스트',
+    ]);
     final album = _firstNonEmpty([tag?.album, fallbackAlbum, '']);
-    final albumArtist = _firstNonEmpty([tag?.albumArtist, artist]);
 
-    final durationMs = tag?.duration != null && tag!.duration! > 0
-        ? tag.duration! * 1000
-        : (fallbackDurationMs ?? 0);
+    // 이 파서에는 앨범 아티스트가 따로 없다. 전에도 없으면 아티스트로
+    // 떨어뜨렸으므로 결과가 같은 자리가 대부분이다.
+    final albumArtist = artist;
+
+    final tagged = tag?.duration?.inMilliseconds ?? 0;
+    final durationMs = tagged > 0 ? tagged : (fallbackDurationMs ?? 0);
 
     final artworkPath = await _extractArtwork(tag, playPath, readFrom);
 
@@ -242,7 +253,7 @@ class MediaImporter {
       artist: Value(artist),
       album: Value(album),
       albumArtist: Value(albumArtist),
-      year: Value(tag?.year),
+      year: Value(tag?.year?.year),
       trackNo: Value(tag?.trackNumber),
       durationMs: Value(durationMs),
       sizeBytes: Value(size),
@@ -257,7 +268,7 @@ class MediaImporter {
   /// 온라인 조회는 하지 않는다. 자동으로 자켓을 바꾸는 동작이 이 앱에서
   /// 피하려는 바로 그 문제다.
   Future<String?> _extractArtwork(
-    Tag? tag,
+    AudioMetadata? tag,
     String playPath,
     String readFrom,
   ) async {

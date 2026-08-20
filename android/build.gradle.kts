@@ -17,7 +17,7 @@ subprojects {
 }
 
 // 플러그인마다 compileSdk를 자기 값으로 박아두는데, 그중 낮은 것이 있으면
-// (audiotags는 31) 최신 androidx 의존성과 충돌해 빌드가 멈춘다. 여기서
+// 최신 androidx 의존성과 충돌해 빌드가 멈춘다. 여기서
 // 한 번에 맞춰준다. compileSdk는 어떤 API로 컴파일하느냐일 뿐이라 앱이
 // 설치되는 기기 범위(minSdk)에는 영향이 없다.
 //
