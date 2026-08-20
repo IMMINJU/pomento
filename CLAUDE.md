@@ -282,7 +282,7 @@ Development Mode 필수 조건). Client ID는 `--dart-define=SPOTIFY_CLIENT_ID=.
 **iOS.** `spotify_sdk`의 podspec이 `prepare_command`로 `spotify/ios-sdk`를 `v3.0.0`
 태그에 클론해 xcframework만 남긴다. `pod install` 시점 네트워크 작업이라 맥에서만
 확인된다. 태그가 사라지면 iOS 빌드가 통째로 깨진다. `ios/Podfile`에 최소 버전을
-13.0으로 못 박고 `post_install`에서 모든 pod을 같은 값으로 올린다.
+15.0으로 못 박고 `post_install`에서 모든 pod을 같은 값으로 올린다.
 `SystemNavigator.pop`은 안드로이드에서만 돈다.
 
 **App Remote.** Maven에 없어서 `android/spotify-app-remote/`에 aar을 직접 넣고
@@ -319,11 +319,9 @@ python tool/make_paper.py                                  # 종이 질감
 
 - Smart Lists, 라디오, 곡 식별, 가사, 비주얼라이저
 - 클라우드(Box·Dropbox·OneDrive)와 네트워크(FTP·WebDAV) 파일
-- iOS 빌드 검증. 맥이 없어서 Codemagic `ios-compile`로 돌릴 예정
-- **iOS에서 m4a가 안 열린다.** `com.pomento.app/decoder` 채널이 안드로이드에만
-  있다. iOS에서는 `MissingPluginException`을 잡아 엔진 기본 경로로 넘어가는데
-  AAC 디코더가 없어 그 곡은 재생에 실패한다. 크래시는 안 나고 다음 곡으로
-  넘어간다. AVAudioFile 기반 Swift 구현이 필요하다
+- iOS 실기기 확인. 코드는 다 있고 TestFlight까지 올라갔지만 아이폰에서
+  한 번도 돌려보지 않았다. m4a 재생, Spotify SDK, 파일 가져오기, 배경
+  재생과 잠금화면 조작이 확인 대상이다
 - iOS에서 Spotify SDK 확인
 - Firestore 프리셋 동기화. 지금은 JSON 복사·붙여넣기
 - 태그에서 ISRC 읽기. 지금은 제목·아티스트로만 맞춘다
