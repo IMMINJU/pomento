@@ -27,6 +27,12 @@ final audioHandlerProvider = Provider<PlayerAudioHandler>(
   (ref) => throw UnimplementedError('main에서 override해야 한다'),
 );
 
+/// 시작할 때 넘어간 문제. 없으면 null이다.
+///
+/// 오디오 엔진이 안 붙어도 앱은 뜨게 해뒀다. 소리가 안 나는 이유를
+/// 화면 어딘가에서 읽을 수 있어야 해서 여기에 담아 둔다.
+final startupWarningProvider = Provider<String?>((ref) => null);
+
 final libraryRepositoryProvider = Provider<LibraryRepository>(
   (ref) => LibraryRepository(ref.watch(appDatabaseProvider)),
 );
@@ -73,49 +79,47 @@ final mediaImporterProvider = Provider<MediaImporter>(
 
 final playerControllerProvider =
     StateNotifierProvider<PlayerController, PlayerState>(
-  (ref) => PlayerController(
-    ref.watch(libraryRepositoryProvider),
-    ref.watch(audioHandlerProvider),
-  ),
-);
+      (ref) => PlayerController(
+        ref.watch(libraryRepositoryProvider),
+        ref.watch(audioHandlerProvider),
+      ),
+    );
 
 final effectControllerProvider =
     StateNotifierProvider<EffectController, EffectState>(
-  (ref) => EffectController(
-    ref.watch(presetRepositoryProvider),
-    // 프리셋은 소리 전체를 기술한다. 배속이 없는 프리셋을 고르면 배속도
-    // 원래대로 돌아가야 한다. 안 그러면 "밤에 느리게"를 한 번 고른 뒤로
-    // 무엇을 눌러도 계속 느린 채로 남는다.
-    onTastePresetTempo: (preset) {
-      ref.read(playerControllerProvider.notifier).setTempo(
-            preset.tempo ?? TempoSettings.normal,
-            commit: false,
-          );
-    },
-  ),
-);
+      (ref) => EffectController(
+        ref.watch(presetRepositoryProvider),
+        // 프리셋은 소리 전체를 기술한다. 배속이 없는 프리셋을 고르면 배속도
+        // 원래대로 돌아가야 한다. 안 그러면 "밤에 느리게"를 한 번 고른 뒤로
+        // 무엇을 눌러도 계속 느린 채로 남는다.
+        onTastePresetTempo: (preset) {
+          ref
+              .read(playerControllerProvider.notifier)
+              .setTempo(preset.tempo ?? TempoSettings.normal, commit: false);
+        },
+      ),
+    );
 
 /// 조작 단위 설정. 스테퍼 폭, 점프 탐색 시간, 속도 슬라이더 범위.
-final settingsProvider =
-    StateNotifierProvider<SettingsController, AppSettings>(
+final settingsProvider = StateNotifierProvider<SettingsController, AppSettings>(
   (ref) => SettingsController(),
 );
 
 /// 슬립 타이머. 시간이 다 되면 어느 쪽이 소리를 내고 있든 멈춘다.
 final sleepTimerProvider =
     StateNotifierProvider<SleepTimerController, SleepTimerState>((ref) {
-  final controller = SleepTimerController(() {
-    ref.read(playerControllerProvider.notifier).pause();
-    final spotify = ref.read(spotifySessionProvider);
-    if (spotify.connected && !spotify.paused) {
-      ref.read(spotifySessionProvider.notifier).togglePlay();
-    }
-  });
-  // 곡이 끝나는 시점은 재생기가 안다. "이 곡까지"를 그쪽에서 물어보게 한다.
-  ref.read(playerControllerProvider.notifier).shouldStopAfterTrack =
-      controller.consumeTrackEnd;
-  return controller;
-});
+      final controller = SleepTimerController(() {
+        ref.read(playerControllerProvider.notifier).pause();
+        final spotify = ref.read(spotifySessionProvider);
+        if (spotify.connected && !spotify.paused) {
+          ref.read(spotifySessionProvider.notifier).togglePlay();
+        }
+      });
+      // 곡이 끝나는 시점은 재생기가 안다. "이 곡까지"를 그쪽에서 물어보게 한다.
+      ref.read(playerControllerProvider.notifier).shouldStopAfterTrack =
+          controller.consumeTrackEnd;
+      return controller;
+    });
 
 /// 취향 프리셋 개수. 음향 화면 머리에 붙인다.
 final tastePresetCountProvider = Provider<int>((ref) {
@@ -123,8 +127,7 @@ final tastePresetCountProvider = Provider<int>((ref) {
 });
 
 final tastePresetsProvider = StreamProvider<List<Preset>>(
-  (ref) =>
-      ref.watch(presetRepositoryProvider).watchByLayer(PresetLayer.taste),
+  (ref) => ref.watch(presetRepositoryProvider).watchByLayer(PresetLayer.taste),
 );
 
 final trackSortProvider = StateProvider<TrackSort>((ref) => TrackSort.title);
@@ -143,18 +146,18 @@ final playlistsProvider = StreamProvider<List<Playlist>>(
 final savedTemposProvider = StreamProvider<Map<int, TempoSettings>>((ref) {
   final repo = ref.watch(libraryRepositoryProvider);
   return repo.watchAllTrackSettings().map(
-        (rows) => {
-          for (final r in rows)
-            r.trackId: TempoSettings(
-              mode: TempoMode.values.firstWhere(
-                (m) => m.name == r.tempoMode,
-                orElse: () => TempoMode.linked,
-              ),
-              speed: r.speed,
-              pitchCents: r.pitchCents,
-            ),
-        },
-      );
+    (rows) => {
+      for (final r in rows)
+        r.trackId: TempoSettings(
+          mode: TempoMode.values.firstWhere(
+            (m) => m.name == r.tempoMode,
+            orElse: () => TempoMode.linked,
+          ),
+          speed: r.speed,
+          pitchCents: r.pitchCents,
+        ),
+    },
+  );
 });
 
 /// 지금 소리를 내는 쪽.
@@ -163,8 +166,9 @@ final savedTemposProvider = StreamProvider<Map<int, TempoSettings>>((ref) {
 /// 어느 쪽을 보여줄지 여기서 정한다.
 enum PlaybackSource { local, spotify }
 
-final activeSourceProvider =
-    StateProvider<PlaybackSource>((ref) => PlaybackSource.local);
+final activeSourceProvider = StateProvider<PlaybackSource>(
+  (ref) => PlaybackSource.local,
+);
 
 /// Spotify 검색과 App Remote 재생.
 /// 두 재생이 겹치지 않게 한다.
@@ -197,8 +201,8 @@ final playbackRefereeProvider = Provider<void>((ref) {
 
 final spotifySessionProvider =
     StateNotifierProvider<SpotifySession, SpotifyState>(
-  (ref) => SpotifySession(),
-);
+      (ref) => SpotifySession(),
+    );
 
 /// 지금 보여줄 곡이 있는지. 미니 플레이어를 띄울지 정하는 데 쓴다.
 final nowPlayingExistsProvider = Provider<bool>((ref) {
@@ -215,9 +219,7 @@ final nowPlayingExistsProvider = Provider<bool>((ref) {
 /// 목록이 버벅인다. 라이브러리가 바뀔 때만 한 번 만든다.
 final matchKeysProvider = Provider<List<MatchKey<Track>>>((ref) {
   final tracks = ref.watch(tracksProvider).value ?? const <Track>[];
-  return [
-    for (final t in tracks) MatchKey<Track>(t, t.title, t.artist),
-  ];
+  return [for (final t in tracks) MatchKey<Track>(t, t.title, t.artist)];
 });
 
 final outputDeviceProvider = StreamProvider<OutputDevice>(

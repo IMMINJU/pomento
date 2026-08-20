@@ -46,14 +46,23 @@ Future<void> main() async {
       ),
     );
 
+    // 엔진이 없으면 소리는 안 나지만 화면은 다 볼 수 있다. iOS에서 처음
+    // 도는 참이라 여기서 멈추면 나머지가 멀쩡한지조차 확인할 수 없다.
+    // 실패한 이유는 설정 화면에 남겨 둔다.
     step = '오디오 엔진';
-    await AudioEngine.instance.init();
+    String? engineError;
+    try {
+      await AudioEngine.instance.init();
+    } catch (error) {
+      engineError = '$error';
+    }
 
     runApp(
       ProviderScope(
         overrides: [
           appDatabaseProvider.overrideWithValue(db),
           audioHandlerProvider.overrideWithValue(handler),
+          startupWarningProvider.overrideWithValue(engineError),
         ],
         child: const PlayerApp(),
       ),

@@ -200,7 +200,10 @@ class SettingsScreen extends ConsumerWidget {
                 children: [_SpotifyBlock()],
               ),
 
-              const SettingsSection(title: '정보', children: [_VersionRow()]),
+              const SettingsSection(
+                title: '정보',
+                children: [_VersionRow(), _StartupWarningRow()],
+              ),
             ],
           ),
         ),
@@ -378,5 +381,36 @@ class _VersionRowState extends State<_VersionRow> {
   @override
   Widget build(BuildContext context) {
     return SettingsInfoRow(title: '버전', value: _value);
+  }
+}
+
+/// 시작할 때 넘어간 문제. 없으면 아무것도 안 그린다.
+///
+/// 오디오 엔진이 안 붙어도 앱은 뜨게 해뒀다. 소리가 안 나는 이유를
+/// 여기서 읽을 수 있어야 다른 기기에서 무슨 일인지 물어볼 수 있다.
+class _StartupWarningRow extends ConsumerWidget {
+  const _StartupWarningRow();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final warning = ref.watch(startupWarningProvider);
+    if (warning == null) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpace.gutter,
+        4,
+        AppSpace.gutter,
+        18,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('오디오 엔진이 시작되지 않았습니다', style: AppText.body),
+          const SizedBox(height: 6),
+          SelectableText(warning, style: AppText.sub),
+        ],
+      ),
+    );
   }
 }
