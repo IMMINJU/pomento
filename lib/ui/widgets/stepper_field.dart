@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../theme.dart';
-import 'artwork_tone.dart';
 
 /// 라벨 + 숫자칸 + 슬라이더 + −/+ 한 세트.
 ///
@@ -217,10 +216,10 @@ class _StepperFieldState extends State<StepperField> {
                   child: SliderTheme(
                     data: SliderTheme.of(context).copyWith(
                       trackHeight: 2,
-                      activeTrackColor: CoverScope.of(context).accent,
+                      activeTrackColor: AppColors.accent,
                       inactiveTrackColor: AppColors.paperLo,
-                      thumbColor: CoverScope.of(context).accent,
-                      overlayColor: CoverScope.of(context).accentTint,
+                      thumbColor: AppColors.accent,
+                      overlayColor: AppColors.accentTint,
                       overlayShape:
                           const RoundSliderOverlayShape(overlayRadius: 14),
                     ),
@@ -246,7 +245,6 @@ class _StepperFieldState extends State<StepperField> {
   }
 
   Widget _numberBox() {
-    final tone = CoverScope.of(context);
     // 테두리 대신 가라앉은 면으로 구분한다
     return Container(
       width: 104,
@@ -269,7 +267,7 @@ class _StepperFieldState extends State<StepperField> {
               ),
               textInputAction: TextInputAction.done,
               onSubmitted: (_) => _focus.unfocus(),
-              cursorColor: tone.accent,
+              cursorColor: AppColors.accent,
               style: AppText.num.copyWith(fontSize: 17),
               decoration: const InputDecoration(
                 isDense: true,

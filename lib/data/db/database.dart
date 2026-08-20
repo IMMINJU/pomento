@@ -90,6 +90,28 @@ class TrackSettingsRows extends Table {
   Set<Column> get primaryKey => {trackId};
 }
 
+/// 곡 안에 찍어두는 자리표.
+///
+/// 이름을 두지 않는다. 듣다가 찍는 순간 키보드가 올라오면 그 대목을
+/// 놓친다. 시각이 이름 자리를 대신하고, 값이 걸린 마크만 값을 같이 적는다.
+///
+/// [endMs]가 있으면 구간 마크다. 점 마크는 null이다. 처음부터 둘을 갈라
+/// 만들게 하면 찍는 순간에 판단이 하나 더 붙으므로, 일단 점으로 찍고
+/// 나중에 구간으로 올린다.
+///
+/// [speed]와 [pitchCents]가 있으면 그 자리에서 값을 갈아끼운다. 둘 다
+/// null이면 위치만 표시하는 마크다.
+class MarkRows extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get trackId =>
+      integer().references(Tracks, #id, onDelete: KeyAction.cascade)();
+  IntColumn get positionMs => integer()();
+  IntColumn get endMs => integer().nullable()();
+  RealColumn get speed => real().nullable()();
+  RealColumn get pitchCents => real().nullable()();
+  DateTimeColumn get createdAt => dateTime()();
+}
+
 class KeyValues extends Table {
   TextColumn get key => text()();
   TextColumn get value => text()();
@@ -105,6 +127,7 @@ class KeyValues extends Table {
     PlaylistEntries,
     PresetRows,
     TrackSettingsRows,
+    MarkRows,
     KeyValues,
   ],
 )
@@ -114,10 +137,13 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
+        onUpgrade: (m, from, to) async {
+          if (from < 2) await m.createTable(markRows);
+        },
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON');
         },

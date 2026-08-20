@@ -1,7 +1,10 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers.dart';
+import '../spotify_player.dart';
 import '../theme.dart';
 import 'artwork.dart';
 import 'artwork_tone.dart';
@@ -68,11 +71,17 @@ class _SpotifyBar extends ConsumerWidget {
     final session = ref.read(spotifySessionProvider.notifier);
     if (!s.hasTrack) return const SizedBox.shrink();
 
+    // Spotify 자켓은 파일이 아니라 바이트로 온다. 재생 화면이 이미 받아둔
+    // 것을 같은 provider로 재사용하므로 미니 바가 다시 받지 않는다.
+    final art = ref.watch(spotifyImageProvider(s.imageId ?? '')).value;
+
     return _Bar(
       progress: s.progress,
       title: s.trackName ?? '',
       subtitle: s.artistName ?? '',
       artworkPath: null,
+      artworkBytes: art,
+      artworkKey: s.imageId,
       badge: 'Spotify',
       playing: !s.paused,
       onTap: onTap,
@@ -89,6 +98,8 @@ class _Bar extends ConsumerWidget {
     required this.title,
     required this.subtitle,
     required this.artworkPath,
+    this.artworkBytes,
+    this.artworkKey,
     required this.badge,
     required this.playing,
     required this.onTap,
@@ -101,6 +112,13 @@ class _Bar extends ConsumerWidget {
   final String title;
   final String subtitle;
   final String? artworkPath;
+
+  /// 파일이 아니라 바이트로 오는 자켓. Spotify가 이쪽이다.
+  final Uint8List? artworkBytes;
+
+  /// 바이트 자켓의 열쇠. 판 색을 캐시하는 데 쓴다.
+  final String? artworkKey;
+
   final String? badge;
   final bool playing;
   final VoidCallback onTap;
@@ -110,9 +128,18 @@ class _Bar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final tone = ref
-        .watch(coverToneProvider((path: artworkPath, seed: title)))
-        .maybeWhen(data: (t) => t, orElse: () => CoverTone.fallback);
+    final tone = artworkBytes != null
+        ? ref
+              .watch(
+                coverToneOfBytesProvider((
+                  key: artworkKey ?? title,
+                  bytes: artworkBytes,
+                )),
+              )
+              .maybeWhen(data: (t) => t, orElse: () => CoverTone.fallback)
+        : ref
+              .watch(coverToneProvider((path: artworkPath, seed: title)))
+              .maybeWhen(data: (t) => t, orElse: () => CoverTone.fallback);
 
     return CoverScope(
       tone: tone,
@@ -123,7 +150,7 @@ class _Bar extends ConsumerWidget {
           decoration: BoxDecoration(
             // 종이 하이라이트에 자켓 색을 아주 옅게 섞는다
             color: Color.alphaBlend(
-              tone.accent.withValues(alpha: 0.06),
+              tone.fill.withValues(alpha: 0.06),
               AppColors.paperHi,
             ),
             boxShadow: const [
@@ -153,7 +180,7 @@ class _Bar extends ConsumerWidget {
                       child: FractionallySizedBox(
                         alignment: Alignment.centerLeft,
                         widthFactor: progress.clamp(0.0, 1.0),
-                        child: ColoredBox(color: tone.accent),
+                        child: ColoredBox(color: tone.fill),
                       ),
                     ),
                   ),
@@ -165,9 +192,24 @@ class _Bar extends ConsumerWidget {
                           width: 44,
                           height: 44,
                           child: ClipRRect(
-                            borderRadius:
-                                BorderRadius.circular(AppRadius.thumb - 1),
-                            child: Artwork(path: artworkPath, size: 44),
+                            borderRadius: BorderRadius.circular(
+                              AppRadius.thumb - 1,
+                            ),
+                            child: artworkBytes != null
+                                ? Image.memory(
+                                    artworkBytes!,
+                                    width: 44,
+                                    height: 44,
+                                    cacheWidth:
+                                        (44 *
+                                                MediaQuery.devicePixelRatioOf(
+                                                  context,
+                                                ))
+                                            .round(),
+                                    fit: BoxFit.cover,
+                                    gaplessPlayback: true,
+                                  )
+                                : Artwork(path: artworkPath, size: 44),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -192,7 +234,7 @@ class _Bar extends ConsumerWidget {
                                       badge!,
                                       style: AppText.num.copyWith(
                                         fontSize: 12,
-                                        color: tone.accentInk,
+                                        color: AppColors.accent,
                                       ),
                                     ),
                                   ],
@@ -205,8 +247,11 @@ class _Bar extends ConsumerWidget {
                         RoundButton(
                           filled: false,
                           onTap: onPrevious,
-                          child: const Icon(Icons.skip_previous,
-                              size: 24, color: AppColors.ink1),
+                          child: const Icon(
+                            Icons.skip_previous,
+                            size: 24,
+                            color: AppColors.ink1,
+                          ),
                         ),
                         RoundButton(
                           filled: false,
@@ -220,8 +265,11 @@ class _Bar extends ConsumerWidget {
                         RoundButton(
                           filled: false,
                           onTap: onNext,
-                          child: const Icon(Icons.skip_next,
-                              size: 24, color: AppColors.ink1),
+                          child: const Icon(
+                            Icons.skip_next,
+                            size: 24,
+                            color: AppColors.ink1,
+                          ),
                         ),
                       ],
                     ),

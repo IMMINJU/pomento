@@ -30,12 +30,25 @@ class AppColors {
   static const Color ink3 = Color(0xFF6E736B);
   static const Color hair = Color(0xFFA8ADA5);
 
-  /// 자켓에서 뽑는 강조색의 기본값. 실제 값은 [ArtworkTone]이 준다.
-  /// 색이 있으면 재생 중이라는 뜻이다. 정지 상태에는 잉크만 쓴다.
+  /// 자켓에서 뽑는 색의 기본값. 실제 값은 [CoverAnalyzer]가 준다.
+  ///
+  /// **채움에만 쓴다.** 앰비언트 판, 진행선, 상단바 큐 밑줄, 미니 진행선
+  /// 넷이 전부다. 글자에는 안 쓴다. 곡이 바뀌면 색이 같이 바뀌는데, 값과
+  /// 조작부까지 따라 움직이면 화면 모양이 곡마다 흔들린다. 한때 이 색이
+  /// 배속 숫자와 알약 배경까지 다 칠해서 68군데에 걸려 있었다.
   static const Color cover = Color(0xFF4E7095);
-  static const Color coverInk = Color(0xFF3C5A7B);
-  static const Color coverTint = Color(0x1C4E7095); // 0.11
-  static const Color coverEdge = Color(0x524E7095); // 0.32
+
+  /// 값과 설정에 쓰는 고정 강조색.
+  ///
+  /// 배속·피치 숫자, 값 알약, A-B, 마크, 슬라이더, EQ 막대, 배지, 목록에서
+  /// 지금 걸린 곡. 곡이 바뀌어도 안 바뀐다.
+  ///
+  /// 아이콘의 [brand]를 한 단 올린 값이다. 원래 남색은 종이 대비 11.5라
+  /// 잉크(14.3)와 구별이 안 돼서 그냥 검정으로 읽힌다. 이 값은 7.5라
+  /// 색으로 읽히고 12px 글자도 AA를 통과한다.
+  static const Color accent = Color(0xFF364E86);
+  static const Color accentTint = Color(0x1F364E86); // 0.12
+  static const Color accentEdge = Color(0x57364E86); // 0.34
 
   static const Color warn = Color(0xFF8C4A2E);
 
@@ -149,7 +162,7 @@ class AppText {
 ThemeData buildAppTheme() {
   const scheme = ColorScheme.light(
     primary: AppColors.ink1,
-    secondary: AppColors.cover,
+    secondary: AppColors.accent,
     surface: AppColors.paper,
     onPrimary: AppColors.paperHi,
     onSurface: AppColors.ink1,
@@ -168,10 +181,10 @@ ThemeData buildAppTheme() {
     highlightColor: const Color(0x0A232620),
     sliderTheme: const SliderThemeData(
       trackHeight: 2,
-      activeTrackColor: AppColors.cover,
+      activeTrackColor: AppColors.accent,
       inactiveTrackColor: AppColors.paperLo,
-      thumbColor: AppColors.cover,
-      overlayColor: Color(0x1C4E7095),
+      thumbColor: AppColors.accent,
+      overlayColor: AppColors.accentTint,
       thumbShape: RoundSliderThumbShape(enabledThumbRadius: 7),
       overlayShape: RoundSliderOverlayShape(overlayRadius: 16),
       trackShape: RectangularSliderTrackShape(),

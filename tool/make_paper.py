@@ -88,8 +88,10 @@ def make_grain(rng: np.random.Generator) -> None:
     """
     size = 320
     g = fractal(size, size // 2, 2, rng, spread=1.0)
-    # 7%면 밝기가 17단계로 오르내려 화면이 지글거린다
-    alpha = 0.045 * (1.0 - g)
+    # 7%면 밝기가 17단계로 오르내려 화면이 지글거린다. 4.5%도 11단계라
+    # 여전히 보였다. 2.4%면 진폭이 6단계이고, 평균 어두워짐이 3단계라
+    # 종이가 시안과 같은 명도로 앉는다.
+    alpha = 0.024 * (1.0 - g)
     rgb = np.zeros((size, size, 3))  # 검정
     save_rgba(os.path.join(OUT, "grain.png"), rgb, alpha)
 

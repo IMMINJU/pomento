@@ -526,6 +526,16 @@ class PlayerController extends StateNotifier<PlayerState> {
   ///
   /// 한 버튼을 두 번 눌러 A와 B를 찍는 방식은 지금 어느 쪽을 찍는 차례인지
   /// 화면만 보고 알 수 없다. 두 버튼으로 나누면 각각 다시 찍을 수도 있다.
+  /// 구간을 한 번에 건다. 구간 마크를 눌렀을 때 쓴다.
+  ///
+  /// [setLoopA]와 [setLoopB]를 잇달아 부르면 중간에 시작점만 찍힌 상태가
+  /// 한 프레임 생겨서 화면이 깜빡인다.
+  void setLoopAt(Duration a, Duration b) {
+    if (b <= a) return;
+    state = state.copyWith(loopA: a, loopB: b);
+    _engine.setLoopRegion(a, b);
+  }
+
   void setLoopA([Duration? at]) {
     final a = at ?? state.position;
     final b = state.loopB;

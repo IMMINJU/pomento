@@ -27,21 +27,33 @@ class SheetHandle extends StatelessWidget {
       );
 }
 
-/// 진행 바. 트랙 2px에 채운 만큼만 강조색.
+/// 진행 바. 트랙 2px에 채운 만큼만 자켓색.
 ///
 /// 손잡이 동그라미를 두지 않는다. 인쇄물에 튀어나온 부품이 없다. 누르고
 /// 끄는 자리는 20px로 넓게 잡되 그리지는 않는다.
+///
+/// 마크는 막대 **안에서** 처리한다. 점 마크는 잉크 눈금, 구간 마크는 그
+/// 구간만 옅게 칠한다. 새 선을 긋지 않으니 화면이 칸으로 안 잘리고,
+/// 파형이 필요 없어서 시각 값만 있으면 그려진다.
 class ThinProgressBar extends StatelessWidget {
   const ThinProgressBar({
     super.key,
     required this.progress,
     this.onSeek,
     this.height = 2,
+    this.ticks = const [],
+    this.spans = const [],
   });
 
   final double progress;
   final ValueChanged<double>? onSeek;
   final double height;
+
+  /// 점 마크 자리. 0~1.
+  final List<double> ticks;
+
+  /// 구간 마크. 각각 시작과 끝이 0~1이다.
+  final List<({double start, double end})> spans;
 
   @override
   Widget build(BuildContext context) {
@@ -71,15 +83,46 @@ class ThinProgressBar extends StatelessWidget {
                   color: AppColors.paperLo,
                   borderRadius: BorderRadius.circular(AppRadius.pill),
                 ),
-                child: FractionallySizedBox(
-                  alignment: Alignment.centerLeft,
-                  widthFactor: p,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: tone.accent,
-                      borderRadius: BorderRadius.circular(AppRadius.pill),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    for (final s in spans)
+                      Positioned(
+                        left: w * s.start.clamp(0.0, 1.0),
+                        width: w * (s.end - s.start).clamp(0.0, 1.0),
+                        top: -1,
+                        bottom: -1,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: AppColors.accentTint,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                    FractionallySizedBox(
+                      alignment: Alignment.centerLeft,
+                      widthFactor: p,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: tone.fill,
+                          borderRadius: BorderRadius.circular(AppRadius.pill),
+                        ),
+                      ),
                     ),
-                  ),
+                    for (final t in ticks)
+                      Positioned(
+                        left: w * t.clamp(0.0, 1.0) - 0.75,
+                        top: -3,
+                        child: Container(
+                          width: 1.5,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: AppColors.hair,
+                            borderRadius: BorderRadius.circular(1),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ),

@@ -11,6 +11,7 @@ import '../data/repo/library_repository.dart';
 import '../providers.dart';
 import 'home_shell.dart';
 import 'import_sheet.dart';
+import 'practice_screen.dart';
 import 'presets_screen.dart';
 import 'theme.dart';
 import 'widgets/artwork.dart';
@@ -24,6 +25,7 @@ import 'widgets/surface.dart';
 
 enum LibraryTab {
   songs('곡'),
+  practice('연습본'),
   albums('앨범'),
   artists('아티스트'),
   folders('폴더'),
@@ -63,7 +65,9 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
   Widget build(BuildContext context) {
     final tracksAsync = ref.watch(tracksProvider);
     // 목록에서 지금 곡을 그 곡의 색으로 표시한다
-    final playing = ref.watch(playerControllerProvider).current;
+    final playing = ref.watch(
+      playerControllerProvider.select((s) => s.current),
+    );
     final tone = coverToneOf(ref, playing);
 
     return CoverScope(
@@ -232,15 +236,66 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
         return _groupList(tracks, (t) => t.artist);
       case LibraryTab.folders:
         return _groupList(tracks, (t) => p.basename(p.dirname(t.filePath)));
+      case LibraryTab.practice:
+        return _practiceList(tracks);
       case LibraryTab.playlists:
         return _playlistList();
     }
   }
 
+  /// 연습본. 설정이 걸린 곡만 모은다.
+  ///
+  /// 이름이 없다. 배속과 센트가 그 묶음을 가리킨다. 곡 목록과 같은 76px
+  /// 행이라 탭을 오가도 목록이 안 흔들린다.
+  Widget _practiceList(List<Track> tracks) {
+    final tempos =
+        ref.watch(savedTemposProvider).value ?? const <int, TempoSettings>{};
+    final markCounts =
+        ref.watch(markCountsProvider).value ?? const <int, int>{};
+    final nowId = ref.watch(
+      playerControllerProvider.select((s) => s.current?.id),
+    );
+
+    final items = [
+      for (final t in tracks)
+        if ((tempos[t.id] != null && !tempos[t.id]!.isNormal) ||
+            (markCounts[t.id] ?? 0) > 0)
+          t,
+    ];
+
+    if (items.isEmpty) {
+      return const EmptyHint(
+        icon: Icons.bookmark_border,
+        title: '연습본이 없습니다',
+        body: '배속이나 피치를 바꾸거나 마크를 찍으면 여기 모입니다',
+      );
+    }
+
+    return ListView.builder(
+      padding: EdgeInsets.only(
+        top: 4,
+        bottom: shellBottomInset(context, ref) + 12,
+      ),
+      itemCount: items.length,
+      itemBuilder: (context, i) => _PracticeRow(
+        track: items[i],
+        tempo: tempos[items[i].id],
+        markCount: markCounts[items[i].id] ?? 0,
+        playing: items[i].id == nowId,
+        onTap: () => openPracticeFor(context, ref, items[i], tracks),
+      ),
+    );
+  }
+
   Widget _trackList(List<Track> tracks) {
     final temposAsync = ref.watch(savedTemposProvider);
     final tempos = temposAsync.value ?? const <int, TempoSettings>{};
-    final nowId = ref.watch(playerControllerProvider).current?.id;
+    final markCounts =
+        ref.watch(markCountsProvider).value ?? const <int, int>{};
+
+    final nowId = ref.watch(
+      playerControllerProvider.select((s) => s.current?.id),
+    );
     // 열자마자 듣던 곡이 보여야 한다. 천 곡 목록에서 맨 위부터 찾을 수 없다
     if (_tab == LibraryTab.songs && _query.isEmpty) {
       moveToNowPlaying(tracks.indexWhere((t) => t.id == nowId));
@@ -254,6 +309,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
       ),
       itemCount: tracks.length,
       itemBuilder: (context, i) => TrackRow(
+        markCount: markCounts[tracks[i].id] ?? 0,
         track: tracks[i],
         savedTempo: tempos[tracks[i].id],
         playing: tracks[i].id == nowId,
@@ -508,6 +564,119 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
   }
 }
 
+/// 연습본 한 줄.
+///
+/// 이름 대신 배속과 센트가 그 묶음을 가리킨다. 곡 제목은 부제 자리로
+/// 내려간다. 오른쪽 끝은 마크 개수다.
+class _PracticeRow extends StatelessWidget {
+  const _PracticeRow({
+    required this.track,
+    required this.tempo,
+    required this.markCount,
+    required this.playing,
+    this.onTap,
+  });
+
+  final Track track;
+  final TempoSettings? tempo;
+  final int markCount;
+  final bool playing;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = tempo;
+    // 배속이 1.00이고 피치도 0이면 값이 가리키는 것이 없다. 그런 묶음은
+    // 마크만으로 만들어진 것이므로 마크 수를 앞으로 올린다.
+    final tempoChanged = t != null && !t.isNormal;
+
+    return PaperRow(
+      onTap: onTap,
+      children: [
+        Artwork(track: track, size: 46),
+        Expanded(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (tempoChanged)
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Text(
+                      '${t.speed.toStringAsFixed(2)}×',
+                      style: AppText.num.copyWith(
+                        fontSize: 17,
+                        color: AppColors.accent,
+                      ),
+                    ),
+                    if (t.pitchCents != 0) ...[
+                      const SizedBox(width: 10),
+                      Text(
+                        '${t.pitchCents > 0 ? '+' : ''}'
+                        '${t.pitchCents.toStringAsFixed(1)}¢',
+                        style: AppText.num.copyWith(
+                          fontSize: 13,
+                          color: AppColors.ink3,
+                        ),
+                      ),
+                    ],
+                  ],
+                )
+              else
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Text(
+                      '$markCount',
+                      style: AppText.num.copyWith(
+                        fontSize: 17,
+                        color: AppColors.accent,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '마크',
+                      style: AppText.sub.copyWith(color: AppColors.ink3),
+                    ),
+                  ],
+                ),
+              const SizedBox(height: 4),
+              Text(
+                track.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppText.sub.copyWith(
+                  color: playing ? AppColors.accent : AppColors.ink3,
+                ),
+              ),
+            ],
+          ),
+        ),
+        // 값이 앞에 나온 묶음만 오른쪽에 마크 수를 적는다. 마크로 만들어진
+        // 묶음은 앞에서 이미 말했으므로 두 번 적지 않는다.
+        if (tempoChanged && markCount > 0)
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.bookmark, size: 13, color: AppColors.hair),
+              const SizedBox(width: 5),
+              Text(
+                '$markCount',
+                style: AppText.num.copyWith(
+                  fontSize: 12,
+                  color: AppColors.ink3,
+                ),
+              ),
+            ],
+          ),
+      ],
+    );
+  }
+}
+
 /// TrackSort는 enum이지만 UI에서 순회하려면 목록이 필요하다.
 class TrackSortValues {
   const TrackSortValues._();
@@ -520,6 +689,7 @@ class TrackRow extends StatelessWidget {
     super.key,
     required this.track,
     this.savedTempo,
+    this.markCount = 0,
     this.onTap,
     this.onLongPress,
     this.playing = false,
@@ -527,13 +697,15 @@ class TrackRow extends StatelessWidget {
 
   final Track track;
   final TempoSettings? savedTempo;
+
+  /// 이 곡에 찍힌 마크 수. 0이면 배지에 안 적는다.
+  final int markCount;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final bool playing;
 
   @override
   Widget build(BuildContext context) {
-    final tone = CoverScope.of(context);
     final tempo = savedTempo;
     return PaperRow(
       onTap: onTap,
@@ -550,7 +722,7 @@ class TrackRow extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: AppText.body.copyWith(
-                  color: playing ? tone.accentInk : AppColors.ink1,
+                  color: playing ? AppColors.accent : AppColors.ink1,
                 ),
               ),
               const SizedBox(height: 4),
@@ -566,7 +738,14 @@ class TrackRow extends StatelessWidget {
         // 이 곡에 저장된 배속이 있으면 길이 대신 그것을 적는다. 둘 다 적으면
         // 오른쪽 끝이 복잡해지고, 배속이 걸린 곡은 그 사실이 더 중요하다
         if (tempo != null && !tempo.isNormal)
-          ValuePill(label: '${tempo.speed.toStringAsFixed(2)}×', on: true)
+          ValuePill(
+            label: markCount > 0
+                ? '${tempo.speed.toStringAsFixed(2)}×  +$markCount'
+                : '${tempo.speed.toStringAsFixed(2)}×',
+            on: true,
+          )
+        else if (markCount > 0)
+          ValuePill(label: '$markCount 마크')
         else
           Text(
             formatDuration(Duration(milliseconds: track.durationMs)),
@@ -587,7 +766,11 @@ class _GroupTracksScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tempos =
         ref.watch(savedTemposProvider).value ?? const <int, TempoSettings>{};
-    final nowId = ref.watch(playerControllerProvider).current?.id;
+    final markCounts =
+        ref.watch(markCountsProvider).value ?? const <int, int>{};
+    final nowId = ref.watch(
+      playerControllerProvider.select((s) => s.current?.id),
+    );
     return Scaffold(
       body: PaperBackground(
         child: SafeArea(
@@ -602,6 +785,7 @@ class _GroupTracksScreen extends ConsumerWidget {
                   ),
                   itemCount: tracks.length,
                   itemBuilder: (context, i) => TrackRow(
+                    markCount: markCounts[tracks[i].id] ?? 0,
                     track: tracks[i],
                     savedTempo: tempos[tracks[i].id],
                     playing: tracks[i].id == nowId,
@@ -675,10 +859,12 @@ class _PlaylistScreenState extends ConsumerState<_PlaylistScreen>
                         body: '곡을 길게 눌러 이 재생목록에 넣으세요',
                       );
                     }
-                    final nowId = ref
-                        .watch(playerControllerProvider)
-                        .current
-                        ?.id;
+                    final nowId = ref.watch(
+                      playerControllerProvider.select((s) => s.current?.id),
+                    );
+                    final markCounts =
+                        ref.watch(markCountsProvider).value ??
+                        const <int, int>{};
                     moveToNowPlaying(tracks.indexWhere((t) => t.id == nowId));
                     return ListView.builder(
                       controller: nowScroll,
@@ -687,6 +873,7 @@ class _PlaylistScreenState extends ConsumerState<_PlaylistScreen>
                       ),
                       itemCount: tracks.length,
                       itemBuilder: (context, i) => TrackRow(
+                        markCount: markCounts[tracks[i].id] ?? 0,
                         track: tracks[i],
                         playing: tracks[i].id == nowId,
                         onTap: () {

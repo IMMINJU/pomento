@@ -7,23 +7,23 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../audio/player_controller.dart';
 import '../data/models/gesture_settings.dart';
+import '../data/models/app_settings.dart';
 import '../data/models/tempo.dart';
 import '../providers.dart';
 import 'home_shell.dart';
-import 'practice_screen.dart';
 import 'spotify_player.dart';
+import '../data/models/mark.dart';
 import 'theme.dart';
 import 'widgets/ambient_plate.dart';
 import 'widgets/artwork.dart';
 import 'widgets/artwork_tone.dart';
 import 'widgets/common.dart';
 import 'widgets/gesture_layer.dart';
-import 'widgets/jump_button.dart';
 import 'widgets/marquee_text.dart';
-import 'widgets/hold_repeat.dart';
 import 'widgets/paper.dart';
 import 'widgets/player_parts.dart';
 import 'widgets/surface.dart';
+import 'widgets/value_unit.dart';
 
 /// 재생 컨트롤 패널을 펼쳐 두었는지.
 ///
@@ -33,6 +33,11 @@ import 'widgets/surface.dart';
 /// 기본은 접어둔다. 늘 펼쳐두면 피치와 구간 반복을 스치듯 눌러 잘못 걸리는
 /// 일이 잦다. 앨범아트를 길게 누르거나 상단 바의 둥근 버튼으로 연다.
 final controlPanelOpenProvider = StateProvider<bool>((ref) => false);
+
+/// 패널 안에서 지금 보고 있는 탭. 0 속도, 1 구간, 2 마크.
+///
+/// 마크를 네 번째 줄로 넣으면 자켓이 또 준다. 대신 내용만 바꾼다.
+final controlPanelTabProvider = StateProvider<int>((ref) => 0);
 
 class PlayerScreen extends ConsumerStatefulWidget {
   const PlayerScreen({super.key});
@@ -188,6 +193,25 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // 곡이 바뀌면 패널을 닫는다.
+    //
+    // 열어둔 채로 넘어가면 새 곡이 자켓이 줄어든 상태로 나타나고, 패널에
+    // 뜬 배속과 구간은 아직 앞 곡 것으로 보인다. 곡별로 값을 기억하므로
+    // 실제로도 다른 값이다.
+    //
+    // 조건 없이 닫는다. 다음 곡으로 자동으로 넘어갈 때도 마찬가지다.
+    // 어느 쪽이든 화면에 뜬 값이 방금까지 만지던 그 값이 아니게 된다.
+    //
+    // 빌드 도중에 프로바이더를 건드릴 수 없으므로 listen으로 받는다.
+    // 이 호출은 조기 반환보다 앞에 있어야 매 빌드마다 같은 자리에 걸린다.
+    ref.listen(playerControllerProvider.select((s) => s.current?.id), (
+      before,
+      after,
+    ) {
+      if (before == null || after == null || before == after) return;
+      ref.read(controlPanelOpenProvider.notifier).state = false;
+    });
+
     // Spotify 앱이 소리를 내는 동안에는 그쪽 화면을 보여준다. 우리 전송
     // 버튼으로 남의 프로세스를 조종할 수는 없다.
     final source = ref.watch(activeSourceProvider);
@@ -198,9 +222,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       return const SpotifyPlayerView();
     }
 
-    final state = ref.watch(playerControllerProvider);
+    // 재생 위치는 250ms마다 바뀐다. 여기서 상태를 통째로 보면 자켓과
+    // 앰비언트 판까지 초당 네 번 다시 그린다. 위치가 필요한 조각만
+    // 각자 보게 두고 이 빌드는 곡이 바뀔 때만 돈다.
     final controller = ref.read(playerControllerProvider.notifier);
-    final track = state.current;
+    final track = ref.watch(playerControllerProvider.select((s) => s.current));
     final bottomInset = shellBottomInset(context, ref);
     final panelOpen = ref.watch(controlPanelOpenProvider);
 
@@ -226,6 +252,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     }
 
     final tone = coverToneOf(ref, track);
+    final marks = ref.watch(marksProvider).value ?? const <Mark>[];
 
     return CoverScope(
       tone: tone,
@@ -236,8 +263,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
             child: _GestureLayer(
               onScaleStart: (details) {
                 _twoFinger = false;
-                _dragSpeed = state.tempo.speed;
-                _dragPitch = state.tempo.pitchCents;
+                final tempo = ref.read(playerControllerProvider).tempo;
+                _dragSpeed = tempo.speed;
+                _dragPitch = tempo.pitchCents;
               },
               onScaleUpdate: (details, delta) {
                 // 두 번째 손가락은 제스처가 시작된 뒤에 닿는 경우가 많아서
@@ -262,25 +290,30 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                 var snapped = (next * 1000).round() / 1000;
                 if ((snapped - 1.0).abs() < 0.004) snapped = 1.0;
 
+                final tempo = ref.read(playerControllerProvider).tempo;
                 controller.setTempo(
-                  state.tempo.copyWith(
+                  tempo.copyWith(
                     speed: snapped,
-                    pitchCents: state.tempo.mode == TempoMode.independent
+                    pitchCents: tempo.mode == TempoMode.independent
                         ? nextPitch.roundToDouble()
-                        : state.tempo.pitchCents,
+                        : tempo.pitchCents,
                   ),
                 );
               },
               onScaleEnd: () {
                 if (_twoFinger) {
                   HapticFeedback.selectionClick();
-                  controller.setTempo(state.tempo, commit: true);
+                  controller.setTempo(
+                    ref.read(playerControllerProvider).tempo,
+                    commit: true,
+                  );
                 }
                 _twoFinger = false;
               },
               onTwoFingerDoubleTap: () {
                 controller.setTempoMode(
-                  state.tempo.mode == TempoMode.linked
+                  ref.read(playerControllerProvider).tempo.mode ==
+                          TempoMode.linked
                       ? TempoMode.independent
                       : TempoMode.linked,
                 );
@@ -293,7 +326,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                 onSwipe: _onSwipe,
                 child: Column(
                   children: [
-                    _TopBar(state: state),
+                    const _TopBar(),
                     // 남는 세로 공간을 전부 자켓과 그 뒤의 판에 준다.
                     // 자켓이 작아지면 제스처를 받을 면적도 같이 줄어든다.
                     Expanded(
@@ -309,9 +342,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    _TitleRow(state: state, controller: controller),
+                    _TitleRow(controller: controller),
                     const SizedBox(height: 20),
-                    _Progress(state: state, controller: controller),
+                    _Progress(controller: controller, marks: marks),
                     // 패널이 열리고 닫힐 때 자켓이 함께 줄고 늘어난다.
                     // 높이가 튀면 자켓이 순간이동한 것처럼 보인다
                     ClipRect(
@@ -324,10 +357,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   const SizedBox(height: 16),
-                                  _ControlPanel(
-                                    state: state,
-                                    controller: controller,
-                                  ),
+                                  _ControlPanel(controller: controller),
                                 ],
                               )
                             : const SizedBox(width: double.infinity),
@@ -335,7 +365,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                     ),
                     const SizedBox(height: 24),
                     _Transport(
-                      state: state,
                       controller: controller,
                       onPrevious: () {
                         _slideDir = -1;
@@ -445,17 +474,18 @@ class _Band extends StatelessWidget {
 /// 왼쪽 알약의 밑줄은 곡의 진행이 아니라 큐 안에서의 위치다. 자주 쓰지
 /// 않는 것을 위로 올린다. 아래쪽은 재생 조작 몫이다.
 class _TopBar extends ConsumerWidget {
-  const _TopBar({required this.state});
-
-  final PlayerState state;
+  const _TopBar();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final total = state.queue.length;
+    // 큐 자리만 본다. 레코드는 값으로 견주므로 곡이 바뀔 때만 다시 그린다.
+    final (at, total) = ref.watch(
+      playerControllerProvider.select((s) => (s.index, s.queue.length)),
+    );
     final panelOpen = ref.watch(controlPanelOpenProvider);
 
     return PlayerTopBar(
-      leading: QueuePill(at: total == 0 ? 0 : state.index + 1, total: total),
+      leading: QueuePill(at: total == 0 ? 0 : at + 1, total: total),
       panelOpen: panelOpen,
       onTogglePanel: () =>
           ref.read(controlPanelOpenProvider.notifier).state = !panelOpen,
@@ -469,16 +499,19 @@ class _TopBar extends ConsumerWidget {
 ///
 /// 제목과 전송을 카드로 묶지 않는다. 한 번 묶어봤는데 Capriccio는 그렇게
 /// 하지 않는다.
-class _TitleRow extends StatelessWidget {
-  const _TitleRow({required this.state, required this.controller});
+class _TitleRow extends ConsumerWidget {
+  const _TitleRow({required this.controller});
 
-  final PlayerState state;
   final PlayerController controller;
 
   @override
-  Widget build(BuildContext context) {
-    final tone = CoverScope.of(context);
-    final track = state.current!;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final track = ref.watch(playerControllerProvider.select((s) => s.current))!;
+    final (speed, repeat, shuffle) = ref.watch(
+      playerControllerProvider.select(
+        (s) => (s.tempo.speed, s.repeat, s.shuffle),
+      ),
+    );
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpace.gutter),
       child: Column(
@@ -506,13 +539,13 @@ class _TitleRow extends StatelessWidget {
                           style: AppText.sub,
                         ),
                       ),
-                    if (state.tempo.speed != 1.0) ...[
+                    if (speed != 1.0) ...[
                       const SizedBox(width: 8),
                       Text(
-                        '${state.tempo.speed.toStringAsFixed(2)}×',
+                        '${speed.toStringAsFixed(2)}×',
                         style: AppText.num.copyWith(
                           fontSize: 12,
-                          color: tone.accentInk,
+                          color: AppColors.accent,
                         ),
                       ),
                     ],
@@ -522,16 +555,16 @@ class _TitleRow extends StatelessWidget {
               // 제목 덩어리의 오른쪽 아래. 제목 줄을 비켜 있으면서도 이 곡에
               // 딸린 설정이라는 것이 읽힌다
               ToggleIcon(
-                icon: switch (state.repeat) {
+                icon: switch (repeat) {
                   RepeatMode.one => Icons.repeat_one,
                   _ => Icons.repeat,
                 },
-                on: state.repeat != RepeatMode.off,
+                on: repeat != RepeatMode.off,
                 onTap: controller.cycleRepeat,
               ),
               ToggleIcon(
                 icon: Icons.shuffle,
-                on: state.shuffle,
+                on: shuffle,
                 onTap: controller.toggleShuffle,
               ),
             ],
@@ -542,19 +575,33 @@ class _TitleRow extends StatelessWidget {
   }
 }
 
-class _Progress extends StatelessWidget {
-  const _Progress({required this.state, required this.controller});
+class _Progress extends ConsumerWidget {
+  const _Progress({required this.controller, required this.marks});
 
-  final PlayerState state;
   final PlayerController controller;
+  final List<Mark> marks;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // 위치를 실제로 쓰는 자리라 250ms마다 다시 그린다. 진행바와 시간 줄
+    // 둘뿐이라 바깥까지 끌고 가지 않는다.
+    final state = ref.watch(playerControllerProvider);
+    final total = state.duration.inMilliseconds;
+    double at(Duration d) =>
+        total <= 0 ? 0 : (d.inMilliseconds / total).clamp(0.0, 1.0);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpace.gutter),
       child: Column(
         children: [
           ThinProgressBar(
+            ticks: [
+              for (final m in marks)
+                if (!m.isLoop) at(m.position),
+            ],
+            spans: [
+              for (final m in marks)
+                if (m.isLoop) (start: at(m.position), end: at(m.end!)),
+            ],
             progress: state.progress,
             onSeek: (p) => controller.seek(
               Duration(
@@ -579,105 +626,49 @@ class _Progress extends StatelessWidget {
 /// 카드가 되는데, 그러면 자켓을 덮는다. 자켓 위에 아무것도 올리지 않기로
 /// 했으므로 패널이 열리면 자켓이 줄고 패널이 진행바 아래로 들어간다.
 class _ControlPanel extends ConsumerWidget {
-  const _ControlPanel({required this.state, required this.controller});
+  const _ControlPanel({required this.controller});
 
-  final PlayerState state;
   final PlayerController controller;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // 구간과 마크가 지금 위치를 쓴다. 패널은 접힌 상태가 기본이라
+    // 열려 있을 때만 이 빌드가 250ms마다 돈다.
+    final state = ref.watch(playerControllerProvider);
     final settings = ref.watch(settingsProvider);
     final tempo = state.tempo;
-    final short = settings.seekShortSeconds;
-    final long = settings.seekLongSeconds;
+    final tab = ref.watch(controlPanelTabProvider);
+    final marks = ref.watch(marksProvider).value ?? const <Mark>[];
+    final trackId = state.current?.id;
+
+    final linked = tempo.mode == TempoMode.linked;
+    final hasLoop = state.loopA != null || state.loopB != null;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 14),
       child: Sunken(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                JumpButton(
-                  seconds: long,
-                  back: true,
-                  onTap: () => controller.seekBy(Duration(seconds: -long)),
-                ),
-                JumpButton(
-                  seconds: short,
-                  back: true,
-                  onTap: () => controller.seekBy(Duration(seconds: -short)),
-                ),
-                Expanded(
-                  child: AbPill(
-                    loopA: state.loopA,
-                    loopB: state.loopB,
-                    onSetA: controller.setLoopA,
-                    onSetB: controller.setLoopB,
-                    onClear: controller.clearLoop,
-                  ),
-                ),
-                JumpButton(
-                  seconds: short,
-                  back: false,
-                  onTap: () => controller.seekBy(Duration(seconds: short)),
-                ),
-                JumpButton(
-                  seconds: long,
-                  back: false,
-                  onTap: () => controller.seekBy(Duration(seconds: long)),
-                ),
+            ValueSegment(
+              index: tab,
+              onChanged: (i) {
+                HapticFeedback.selectionClick();
+                ref.read(controlPanelTabProvider.notifier).state = i;
+              },
+              items: [
+                SegmentItem('속도', changed: !tempo.isNormal),
+                SegmentItem('구간', changed: hasLoop),
+                SegmentItem('마크', changed: marks.isNotEmpty),
               ],
             ),
-            const SizedBox(height: 10),
-            _ValueStepper(
-              // 아이콘을 누르면 연동과 고정이 바뀐다
-              icon: tempo.mode == TempoMode.linked
-                  ? Icons.link
-                  : Icons.link_off,
-              value: '${tempo.speed.toStringAsFixed(2)}×',
-              aux: tempo.speed == 1.0
-                  ? ''
-                  : '${tempo.speed > 1 ? '+' : ''}'
-                        '${((tempo.speed - 1) * 100).toStringAsFixed(1)}%',
-              changed: tempo.speed != 1.0,
-              onMinus: () => _bumpSpeed(-1, settings.speedStep),
-              onPlus: () => _bumpSpeed(1, settings.speedStep),
-              onIconTap: () {
-                HapticFeedback.selectionClick();
-                controller.setTempoMode(
-                  tempo.mode == TempoMode.linked
-                      ? TempoMode.independent
-                      : TempoMode.linked,
-                );
-              },
-            ),
-            const SizedBox(height: 8),
-            _ValueStepper(
-              icon: Icons.piano,
-              value:
-                  '${tempo.pitchCents >= 0 ? '+' : ''}'
-                  '${tempo.pitchCents.toStringAsFixed(1)}¢',
-              // 연동 모드에서는 피치가 잠긴다. 리샘플링이라 음질 손실이
-              // 없다는 것이 그 모드의 존재 이유인데 피치시프트를 얹으면
-              // 피하려던 잡음을 도로 들이게 된다.
-              // 잠긴 줄을 누르면 고정으로 바꿔준다
-              aux: tempo.mode == TempoMode.linked
-                  ? '고정으로'
-                  : (tempo.pitchCents == 0
-                        ? ''
-                        : 'A=${(440 * math.pow(2, tempo.pitchCents / 1200)).round()}'),
-              changed: tempo.pitchCents != 0,
-              enabled: tempo.mode == TempoMode.independent,
-              onMinus: () => _bumpPitch(-1, settings.pitchStepCents.toDouble()),
-              onPlus: () => _bumpPitch(1, settings.pitchStepCents.toDouble()),
-              onIconTap: () => openPracticeScreen(context),
-              onDisabledTap: () {
-                HapticFeedback.selectionClick();
-                controller.setTempoMode(TempoMode.independent);
+            const SizedBox(height: 14),
+            Row(
+              children: switch (tab) {
+                1 => _loopUnits(state),
+                2 => _markUnits(ref, state, trackId, marks),
+                _ => _speedUnits(state, settings, linked),
               },
             ),
           ],
@@ -686,155 +677,193 @@ class _ControlPanel extends ConsumerWidget {
     );
   }
 
-  void _bumpSpeed(int dir, double step) {
-    var next = state.tempo.speed + step * dir;
+  /// 왼쪽이 템포, 오른쪽이 피치다. 한 값의 두 축이라 한 줄에 둔다.
+  List<Widget> _speedUnits(
+    PlayerState state,
+    AppSettings settings,
+    bool linked,
+  ) {
+    final tempo = state.tempo;
+    return [
+      ValueUnit(
+        minus: '−',
+        plus: '+',
+        value: '${tempo.speed.toStringAsFixed(2)}×',
+        label: linked ? '연동' : '고정',
+        // 0.5~2.0 을 폭으로 본다
+        position: ((tempo.speed - 0.5) / 1.5).clamp(0.0, 1.0),
+        changed: tempo.speed != 1.0,
+        onMinus: () => _bumpSpeed(tempo, -1, settings.speedStep),
+        onPlus: () => _bumpSpeed(tempo, 1, settings.speedStep),
+        onTap: () {
+          HapticFeedback.selectionClick();
+          controller.setTempoMode(
+            linked ? TempoMode.independent : TempoMode.linked,
+          );
+        },
+      ),
+      const SizedBox(width: 10),
+      ValueUnit(
+        // 피치는 -/+ 가 아니라 내림표와 올림표다
+        minus: '♭',
+        plus: '♯',
+        value: tempo.pitchCents.toStringAsFixed(1),
+        label: linked ? '고정으로' : '센트',
+        position: ((tempo.pitchCents + 200) / 400).clamp(0.0, 1.0),
+        changed: tempo.pitchCents != 0,
+        onMinus: linked
+            ? null
+            : () => _bumpPitch(tempo, -1, settings.pitchStepCents.toDouble()),
+        onPlus: linked
+            ? null
+            : () => _bumpPitch(tempo, 1, settings.pitchStepCents.toDouble()),
+        onTap: () {
+          HapticFeedback.selectionClick();
+          if (linked) controller.setTempoMode(TempoMode.independent);
+        },
+      ),
+    ];
+  }
+
+  List<Widget> _loopUnits(PlayerState state) {
+    final total = state.duration.inMilliseconds;
+    double at(Duration? d) =>
+        (d == null || total <= 0) ? 0 : (d.inMilliseconds / total);
+    return [
+      ValueUnit(
+        minus: '−',
+        plus: '+',
+        value: state.loopA == null ? '—' : formatDuration(state.loopA!),
+        label: 'A',
+        position: at(state.loopA),
+        changed: state.loopA != null,
+        onMinus: () => controller.setLoopA(
+          (state.loopA ?? state.position) - const Duration(milliseconds: 250),
+        ),
+        onPlus: () => controller.setLoopA(
+          (state.loopA ?? state.position) + const Duration(milliseconds: 250),
+        ),
+        onTap: controller.setLoopA,
+      ),
+      const SizedBox(width: 10),
+      ValueUnit(
+        minus: '−',
+        plus: '+',
+        value: state.loopB == null ? '—' : formatDuration(state.loopB!),
+        label: 'B',
+        position: at(state.loopB),
+        changed: state.loopB != null,
+        onMinus: () => controller.setLoopB(
+          (state.loopB ?? state.position) - const Duration(milliseconds: 250),
+        ),
+        onPlus: () => controller.setLoopB(
+          (state.loopB ?? state.position) + const Duration(milliseconds: 250),
+        ),
+        onTap: controller.setLoopB,
+      ),
+    ];
+  }
+
+  /// 이전 마크 · 여기에 찍기 · 다음 마크. 스테퍼의 양끝 자리를 이동이 쓴다.
+  List<Widget> _markUnits(
+    WidgetRef ref,
+    PlayerState state,
+    int? trackId,
+    List<Mark> marks,
+  ) {
+    final repo = ref.read(markRepositoryProvider);
+    final at = state.position;
+    Mark? before;
+    Mark? after;
+    for (final m in marks) {
+      if (m.position < at - const Duration(milliseconds: 400)) before = m;
+      if (after == null &&
+          m.position > at + const Duration(milliseconds: 400)) {
+        after = m;
+      }
+    }
+    return [
+      SquareIconButton(
+        icon: Icons.first_page,
+        onTap: before == null ? null : () => controller.seek(before!.position),
+      ),
+      const SizedBox(width: 3),
+      Expanded(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: trackId == null
+              ? null
+              : () {
+                  HapticFeedback.selectionClick();
+                  repo.add(trackId, at);
+                },
+          child: Container(
+            height: 46,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              color: AppColors.accentTint,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.bookmark_add_outlined,
+                  size: 17,
+                  color: AppColors.ink2,
+                ),
+                Expanded(
+                  child: Text(
+                    '여기에 찍기',
+                    textAlign: TextAlign.center,
+                    style: AppText.body.copyWith(
+                      fontSize: 15,
+                      color: AppColors.accent,
+                    ),
+                  ),
+                ),
+                Text(
+                  formatDuration(at),
+                  style: AppText.num.copyWith(
+                    fontSize: 12,
+                    color: AppColors.ink3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      const SizedBox(width: 3),
+      SquareIconButton(
+        icon: Icons.last_page,
+        onTap: after == null ? null : () => controller.seek(after!.position),
+      ),
+    ];
+  }
+
+  void _bumpSpeed(TempoSettings tempo, int dir, double step) {
+    var next = tempo.speed + step * dir;
     next = (next * 1000).round() / 1000;
     if ((next - 1.0).abs() < step * 0.4) next = 1.0;
     HapticFeedback.selectionClick();
     controller.setSpeed(next.clamp(0.5, 2.0), commit: true);
   }
 
-  void _bumpPitch(int dir, double stepCents) {
-    final next = (state.tempo.pitchCents + stepCents * dir).clamp(
-      -200.0,
-      200.0,
-    );
+  void _bumpPitch(TempoSettings tempo, int dir, double stepCents) {
+    final next = (tempo.pitchCents + stepCents * dir).clamp(-200.0, 200.0);
     HapticFeedback.selectionClick();
     controller.setPitchCents(next.toDouble(), commit: true);
   }
 }
 
-/// `⊖ 아이콘 값 보조 ⊕` 한 벌. 속도와 피치가 같은 모양을 쓴다.
-///
-/// 알약 안을 `아이콘 | 값 | 보조값` 셋으로 나눈다. 가운데를 비워두면
-/// 218px짜리 알약에 68px어치 글자만 든 꼴이 된다.
-class _ValueStepper extends StatelessWidget {
-  const _ValueStepper({
-    required this.icon,
-    required this.value,
-    required this.aux,
-    required this.changed,
-    required this.onMinus,
-    required this.onPlus,
-    required this.onIconTap,
-    this.enabled = true,
-    this.onDisabledTap,
-  });
-
-  final IconData icon;
-  final String value;
-
-  /// 오른쪽 끝에 붙는 보조값. 배속의 퍼센트, 피치의 기준음.
-  final String aux;
-
-  /// 기본값에서 벗어나 있으면 값을 강조색으로 쓴다.
-  final bool changed;
-
-  final VoidCallback onMinus;
-  final VoidCallback onPlus;
-  final VoidCallback onIconTap;
-  final bool enabled;
-
-  /// 꺼져 있을 때 눌렀을 때. 왜 안 되는지 알 길이 없으면 고장으로 보인다.
-  /// 피치는 연동 모드에서 잠기는데, 여기를 누르면 고정으로 바꿔준다.
-  final VoidCallback? onDisabledTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final tone = CoverScope.of(context);
-    return Opacity(
-      opacity: enabled ? 1 : 0.45,
-      child: Row(
-        children: [
-          IgnorePointer(
-            ignoring: !enabled,
-            child: _CircleStep(icon: Icons.remove, onTap: onMinus),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: GestureDetector(
-              onTap: enabled ? onIconTap : onDisabledTap,
-              behavior: HitTestBehavior.opaque,
-              child: Container(
-                height: AppSpace.tap,
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                decoration: BoxDecoration(
-                  color: changed ? tone.accentTint : AppColors.paperHi,
-                  borderRadius: BorderRadius.circular(AppRadius.pill),
-                ),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 18,
-                      child: Icon(icon, size: 16, color: AppColors.ink2),
-                    ),
-                    Expanded(
-                      child: Text(
-                        value,
-                        textAlign: TextAlign.center,
-                        style: AppText.num.copyWith(
-                          fontSize: 17,
-                          color: changed ? tone.accentInk : AppColors.ink1,
-                        ),
-                      ),
-                    ),
-                    SizedBox(
-                      width: 48,
-                      child: Text(
-                        aux,
-                        textAlign: TextAlign.right,
-                        style: AppText.sub,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          IgnorePointer(
-            ignoring: !enabled,
-            child: _CircleStep(icon: Icons.add, onTap: onPlus),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CircleStep extends StatelessWidget {
-  const _CircleStep({required this.icon, required this.onTap});
-
-  final IconData icon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return HoldRepeat(
-      onTrigger: onTap,
-      child: Container(
-        width: AppSpace.tap,
-        height: AppSpace.tap,
-        decoration: const BoxDecoration(
-          shape: BoxShape.circle,
-          color: AppColors.paperHi,
-        ),
-        child: Icon(icon, size: 20, color: AppColors.ink1),
-      ),
-    );
-  }
-}
-
 /// `[폴더] 이전 재생 다음 [재생목록]`.
-class _Transport extends StatelessWidget {
+class _Transport extends ConsumerWidget {
   const _Transport({
-    required this.state,
     required this.controller,
     required this.onPrevious,
     required this.onNext,
   });
 
-  final PlayerState state;
   final PlayerController controller;
 
   /// 미끄러지는 방향을 화면이 정해야 해서 바깥에서 받는다.
@@ -842,9 +871,9 @@ class _Transport extends StatelessWidget {
   final VoidCallback onNext;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return TransportRow(
-      playing: state.playing,
+      playing: ref.watch(playerControllerProvider.select((s) => s.playing)),
       onToggle: controller.togglePlay,
       onPrevious: onPrevious,
       onNext: onNext,
@@ -951,9 +980,8 @@ class _SheetPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tone = CoverScope.of(context);
     return Material(
-      color: on ? tone.accentTint : AppColors.paperLo,
+      color: on ? AppColors.accentTint : AppColors.paperLo,
       borderRadius: BorderRadius.circular(AppRadius.pill),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -965,7 +993,7 @@ class _SheetPill extends StatelessWidget {
           child: Text(
             label,
             style: AppText.body.copyWith(
-              color: on ? tone.accentInk : AppColors.ink1,
+              color: on ? AppColors.accent : AppColors.ink1,
             ),
           ),
         ),
@@ -1005,7 +1033,6 @@ void showQueueSheet(BuildContext context) {
       builder: (context, ref, _) {
         final state = ref.watch(playerControllerProvider);
         final controller = ref.read(playerControllerProvider.notifier);
-        final tone = CoverScope.of(context);
         return _Sheet(
           height: MediaQuery.of(context).size.height * 0.72,
           child: Column(
@@ -1042,7 +1069,9 @@ void showQueueSheet(BuildContext context) {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: AppText.body.copyWith(
-                                  color: now ? tone.accentInk : AppColors.ink1,
+                                  color: now
+                                      ? AppColors.accent
+                                      : AppColors.ink1,
                                 ),
                               ),
                               const SizedBox(height: 4),

@@ -11,7 +11,6 @@ import '../providers.dart';
 import 'home_shell.dart';
 import 'theme.dart';
 import 'widgets/artwork.dart';
-import 'widgets/artwork_tone.dart';
 import 'widgets/common.dart';
 import 'widgets/paper.dart';
 import 'widgets/sheet.dart';
@@ -68,8 +67,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     });
     if (!ref.read(spotifySessionProvider).isConfigured) return;
 
-    final found =
-        await ref.read(spotifySessionProvider.notifier).searchTracks(trimmed);
+    final found = await ref
+        .read(spotifySessionProvider.notifier)
+        .searchTracks(trimmed);
     if (!mounted) return;
     setState(() {
       _results = found;
@@ -108,10 +108,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final q = _lastQuery.toLowerCase();
     if (q.isEmpty || all == null) return const [];
     return all
-        .where((t) =>
-            t.title.toLowerCase().contains(q) ||
-            t.artist.toLowerCase().contains(q) ||
-            t.album.toLowerCase().contains(q))
+        .where(
+          (t) =>
+              t.title.toLowerCase().contains(q) ||
+              t.artist.toLowerCase().contains(q) ||
+              t.album.toLowerCase().contains(q),
+        )
         .take(30)
         .toList();
   }
@@ -130,8 +132,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           children: [
             IconButton(
               visualDensity: VisualDensity.compact,
-              icon: const Icon(Icons.chevron_left, size: 24,
-                  color: AppColors.ink1),
+              icon: const Icon(
+                Icons.chevron_left,
+                size: 24,
+                color: AppColors.ink1,
+              ),
               onPressed: () => Navigator.of(context).maybePop(),
             ),
             Expanded(
@@ -200,11 +205,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  Widget _body(
-    bool configured,
-    List<MatchKey<Track>> keys,
-    List<Track> local,
-  ) {
+  Widget _body(bool configured, List<MatchKey<Track>> keys, List<Track> local) {
     if (_lastQuery.isEmpty) {
       return const EmptyHint(
         icon: Icons.search,
@@ -239,9 +240,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       return EmptyHint(
         icon: Icons.search_off,
         title: '결과가 없습니다',
-        body: configured
-            ? '철자를 바꿔 보세요'
-            : '설정에서 Spotify를 연결하면 더 넓게 찾습니다',
+        body: configured ? '철자를 바꿔 보세요' : '설정에서 Spotify를 연결하면 더 넓게 찾습니다',
       );
     }
 
@@ -253,8 +252,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           for (final t in local)
             _LocalRow(
               track: t,
-              playing: t.id ==
-                  ref.watch(playerControllerProvider).current?.id,
+              playing:
+                  t.id ==
+                  ref.watch(
+                    playerControllerProvider.select((s) => s.current?.id),
+                  ),
               onTap: () => _playLocal(t),
             ),
         ],
@@ -269,7 +271,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   height: 20,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: AppColors.cover,
+                    color: AppColors.accent,
                   ),
                 ),
               ),
@@ -283,20 +285,21 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         ] else
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-            child: Text(
-              'Spotify를 연결하면 내가 없는 곡도 함께 찾습니다',
-              style: AppText.sub,
-            ),
+            child: Text('Spotify를 연결하면 내가 없는 곡도 함께 찾습니다', style: AppText.sub),
           ),
       ],
     );
   }
 
   Widget _sectionLabel(String text) => Padding(
-        padding:
-            const EdgeInsets.fromLTRB(AppSpace.gutter, 26, AppSpace.gutter, 10),
-        child: Text(text, style: AppText.label),
-      );
+    padding: const EdgeInsets.fromLTRB(
+      AppSpace.gutter,
+      26,
+      AppSpace.gutter,
+      10,
+    ),
+    child: Text(text, style: AppText.label),
+  );
 
   Future<void> _open(SpotifyTrack t, TrackMatch<Track>? match) async {
     if (match == null) {
@@ -393,58 +396,60 @@ class _ResultRow extends StatelessWidget {
     return PaperRow(
       onTap: onTap,
       children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(AppRadius.thumb),
-              child: spotify.artworkUrl == null
-                  ? Container(
-                      width: 46,
-                      height: 46,
-                      color: AppColors.paperLo,
-                      child: const Icon(Icons.music_note,
-                          size: 18, color: AppColors.hair),
-                    )
-                  : Image.network(
-                      spotify.artworkUrl!,
-                      width: 46,
-                      height: 46,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => Container(
-                        width: 46,
-                        height: 46,
-                        color: AppColors.paperLo,
-                      ),
-                    ),
-            ),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    spotify.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppText.body.copyWith(
-                      color: local ? AppColors.ink1 : AppColors.ink2,
-                    ),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(AppRadius.thumb),
+          child: spotify.artworkUrl == null
+              ? Container(
+                  width: 46,
+                  height: 46,
+                  color: AppColors.paperLo,
+                  child: const Icon(
+                    Icons.music_note,
+                    size: 18,
+                    color: AppColors.hair,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${spotify.artist} · ${spotify.album}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppText.sub,
+                )
+              : Image.network(
+                  spotify.artworkUrl!,
+                  width: 46,
+                  height: 46,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => Container(
+                    width: 46,
+                    height: 46,
+                    color: AppColors.paperLo,
                   ),
-                ],
-              ),
-            ),
-            if (local)
-              ValuePill(label: match!.confidence.label, on: true)
-            else
+                ),
+        ),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Text(
-                formatDuration(spotify.duration),
-                style:
-                    AppText.num.copyWith(fontSize: 12, color: AppColors.ink3),
+                spotify.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppText.body.copyWith(
+                  color: local ? AppColors.ink1 : AppColors.ink2,
+                ),
               ),
+              const SizedBox(height: 4),
+              Text(
+                '${spotify.artist} · ${spotify.album}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppText.sub,
+              ),
+            ],
+          ),
+        ),
+        if (local)
+          ValuePill(label: match!.confidence.label, on: true)
+        else
+          Text(
+            formatDuration(spotify.duration),
+            style: AppText.num.copyWith(fontSize: 12, color: AppColors.ink3),
+          ),
       ],
     );
   }
@@ -464,37 +469,36 @@ class _LocalRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tone = CoverScope.of(context);
     return PaperRow(
       onTap: onTap,
       children: [
-            Artwork(track: track, size: 46),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    track.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppText.body.copyWith(
-                      color: playing ? tone.accentInk : AppColors.ink1,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    track.album.isEmpty || track.album == track.artist
-                        ? track.artist
-                        : '${track.artist} · ${track.album}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppText.sub,
-                  ),
-                ],
+        Artwork(track: track, size: 46),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                track.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppText.body.copyWith(
+                  color: playing ? AppColors.accent : AppColors.ink1,
+                ),
               ),
-            ),
-            // 내가 가진 곡. 여기서만 배속과 구간 반복이 열린다
-            const ValuePill(label: 'LOCAL', on: true),
+              const SizedBox(height: 4),
+              Text(
+                track.album.isEmpty || track.album == track.artist
+                    ? track.artist
+                    : '${track.artist} · ${track.album}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppText.sub,
+              ),
+            ],
+          ),
+        ),
+        // 내가 가진 곡. 여기서만 배속과 구간 반복이 열린다
+        const ValuePill(label: 'LOCAL', on: true),
       ],
     );
   }

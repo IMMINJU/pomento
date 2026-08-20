@@ -260,7 +260,7 @@ class _SpotifyBlockState extends ConsumerState<_SpotifyBlock> {
                 child: TextField(
                   controller: _text,
                   style: AppText.body,
-                  cursorColor: AppColors.cover,
+                  cursorColor: AppColors.accent,
                   onSubmitted: session.setClientId,
                   decoration: const InputDecoration(
                     isDense: true,
@@ -279,7 +279,7 @@ class _SpotifyBlockState extends ConsumerState<_SpotifyBlock> {
                   );
                 },
                 child: const Text('저장',
-                    style: TextStyle(fontSize: 16, color: AppColors.cover)),
+                    style: TextStyle(fontSize: 16, color: AppColors.accent)),
               ),
             ],
           ),
@@ -325,7 +325,7 @@ class _SpotifyBlockState extends ConsumerState<_SpotifyBlock> {
                     height: 18,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: AppColors.cover,
+                      color: AppColors.accent,
                     ),
                   )
                 else
@@ -334,7 +334,7 @@ class _SpotifyBlockState extends ConsumerState<_SpotifyBlock> {
                         ? Icons.check_circle
                         : Icons.radio_button_unchecked,
                     size: 20,
-                    color: s.connected ? AppColors.cover : AppColors.ink3,
+                    color: s.connected ? AppColors.accent : AppColors.ink3,
                   ),
               ],
             ),

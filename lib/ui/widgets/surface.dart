@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
-import 'artwork_tone.dart';
 
 /// 종이 위의 면들.
 ///
@@ -73,20 +72,19 @@ class ValuePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tone = CoverScope.of(context);
     return Container(
       height: 26,
       padding: const EdgeInsets.symmetric(horizontal: 10),
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: on ? tone.accentTint : AppColors.paperLo,
+        color: on ? AppColors.accentTint : AppColors.paperLo,
         borderRadius: BorderRadius.circular(AppRadius.pill),
       ),
       child: Text(
         label,
         style: (style ?? AppText.num).copyWith(
           fontSize: 12,
-          color: on ? tone.accentInk : AppColors.ink3,
+          color: on ? AppColors.accent : AppColors.ink3,
         ),
       ),
     );
@@ -232,9 +230,9 @@ class SegmentBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(4),
+      padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
-        color: AppColors.paperLo,
+        color: AppColors.paperHi,
         borderRadius: BorderRadius.circular(AppRadius.pill),
       ),
       child: Row(
@@ -249,15 +247,8 @@ class SegmentBar extends StatelessWidget {
                   alignment: Alignment.center,
                   decoration: i == index
                       ? BoxDecoration(
-                          color: AppColors.paperHi,
+                          color: AppColors.ink1,
                           borderRadius: BorderRadius.circular(AppRadius.pill),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Color(0x1A232620),
-                              blurRadius: 2,
-                              offset: Offset(0, 1),
-                            ),
-                          ],
                         )
                       : null,
                   child: Text(
@@ -266,7 +257,7 @@ class SegmentBar extends StatelessWidget {
                       fontSize: 13,
                       fontWeight:
                           i == index ? FontWeight.w600 : FontWeight.w500,
-                      color: i == index ? AppColors.ink1 : AppColors.ink2,
+                      color: i == index ? AppColors.paperHi : AppColors.ink3,
                     ),
                   ),
                 ),
@@ -278,9 +269,13 @@ class SegmentBar extends StatelessWidget {
   }
 }
 
-/// 누를 수 있는 알약. 고르면 강조색 틴트가 든다.
+/// 누를 수 있는 알약. 고르면 잉크로 찬다.
 ///
 /// 유리 알약을 대신한다. 테두리가 없고, 고르지 않은 상태는 가라앉은 면이다.
+///
+/// 고른 것을 강조색으로 칠하지 않는다. 알약을 고르는 것은 조작이지 재생이
+/// 아니고, 강조색은 값에만 쓴다. 세그먼트와 프리셋이 같은 규칙이다.
+/// 고른 상태에서는 글자가 [AppColors.paperHi]여야 읽힌다.
 class PaperPill extends StatelessWidget {
   const PaperPill({
     super.key,
@@ -297,9 +292,8 @@ class PaperPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tone = CoverScope.of(context);
     return Material(
-      color: selected ? tone.accentTint : AppColors.paperLo,
+      color: selected ? AppColors.ink1 : AppColors.paperLo,
       borderRadius: BorderRadius.circular(AppRadius.pill),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -358,3 +352,4 @@ class PaperSwitch extends StatelessWidget {
     );
   }
 }
+

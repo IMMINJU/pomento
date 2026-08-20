@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 
 import '../../audio/player_controller.dart';
 import '../../data/models/app_settings.dart';
 import '../../data/models/tempo.dart';
+import '../../providers.dart';
 import '../theme.dart';
 import 'common.dart';
 import 'surface.dart';
@@ -104,7 +106,7 @@ class SpeedBlockState extends State<SpeedBlock> {
                   r.label,
                   style: TextStyle(
                     fontSize: 12,
-                    color: r == range ? AppColors.ink1 : AppColors.ink2,
+                    color: r == range ? AppColors.paperHi : AppColors.ink2,
                   ),
                 ),
               ),
@@ -236,9 +238,11 @@ class PitchBlock extends StatelessWidget {
                           controller.setPitchCents(t.cents, commit: true),
                       child: Text(
                         t.label,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: AppColors.ink2,
+                          color: (tempo.pitchCents - t.cents).abs() < 0.5
+                              ? AppColors.paperHi
+                              : AppColors.ink2,
                         ),
                       ),
                     ),
@@ -252,14 +256,16 @@ class PitchBlock extends StatelessWidget {
   }
 }
 
-class LoopBlock extends StatelessWidget {
-  const LoopBlock({super.key, required this.state, required this.controller});
+class LoopBlock extends ConsumerWidget {
+  const LoopBlock({super.key, required this.controller});
 
-  final PlayerState state;
   final PlayerController controller;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // 눈금이 지금 위치를 따라가야 해서 상태를 통째로 본다. 250ms마다
+    // 다시 그려지는 것은 이 덩어리뿐이다.
+    final state = ref.watch(playerControllerProvider);
     final a = state.loopA;
     final b = state.loopB;
     final total = state.duration;
@@ -384,7 +390,7 @@ class _LoopTimeline extends StatelessWidget {
                     child: Container(
                       height: 6,
                       decoration: BoxDecoration(
-                        color: AppColors.cover.withValues(alpha: 0.55),
+                        color: AppColors.accent.withValues(alpha: 0.55),
                         borderRadius: BorderRadius.circular(AppRadius.pill),
                       ),
                     ),
@@ -411,7 +417,7 @@ class _LoopTimeline extends StatelessWidget {
         height: 14,
         alignment: Alignment.center,
         decoration: const BoxDecoration(
-          color: AppColors.cover,
+          color: AppColors.accent,
           shape: BoxShape.circle,
         ),
         child: Text(
@@ -448,12 +454,12 @@ class _LoopButton extends StatelessWidget {
         height: 52,
         decoration: BoxDecoration(
           color: active
-              ? AppColors.cover.withValues(alpha: 0.16)
+              ? AppColors.accent.withValues(alpha: 0.16)
               : AppColors.paperLo,
           borderRadius: BorderRadius.circular(AppRadius.card),
           border: Border.all(
             color: active
-                ? AppColors.cover.withValues(alpha: 0.55)
+                ? AppColors.accent.withValues(alpha: 0.55)
                 : AppColors.line,
           ),
         ),
@@ -465,7 +471,7 @@ class _LoopButton extends StatelessWidget {
               style: TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
-                color: active ? AppColors.cover : AppColors.ink2,
+                color: active ? AppColors.accent : AppColors.ink2,
               ),
             ),
             const SizedBox(width: 10),

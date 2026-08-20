@@ -71,7 +71,7 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const CircularProgressIndicator(
-              color: AppColors.cover,
+              color: AppColors.accent,
               strokeWidth: 2,
             ),
             const SizedBox(height: 16),
@@ -105,7 +105,7 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
               _selected.remove(item.uri);
             }
           }),
-          activeColor: AppColors.cover,
+          activeColor: AppColors.accent,
           checkColor: AppColors.paper,
           contentPadding: const EdgeInsets.symmetric(horizontal: 20),
           title: Text(
@@ -210,7 +210,7 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
       padding: const EdgeInsets.all(16),
       child: Row(
         children: [
-          Icon(icon, size: 24, color: AppColors.cover),
+          Icon(icon, size: 24, color: AppColors.accent),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
@@ -238,7 +238,7 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
             width: 32,
             height: 32,
             decoration: const BoxDecoration(
-              color: AppColors.cover,
+              color: AppColors.accent,
               shape: BoxShape.circle,
             ),
             alignment: Alignment.center,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/db/database.dart';
 import '../data/models/tempo.dart';
 import '../providers.dart';
 import 'home_shell.dart';
@@ -13,10 +14,27 @@ import 'widgets/screen_header.dart';
 
 /// 재생 화면 위에 쌓는다. 모달로 띄우지 않는 이유는 미니 플레이어와 탭바가
 /// 남아 있어야 값을 바꾸면서 소리를 듣고 곡을 넘길 수 있기 때문이다.
+/// 목록에서 연습본을 눌렀을 때. 그 곡을 걸고 연습 화면으로 간다.
+///
+/// 배지를 누르면 곡을 틀지 않고 값만 보고 싶을 수도 있지만, 값은 소리를
+/// 들으면서 만져야 뜻이 있다.
+Future<void> openPracticeFor(
+  BuildContext context,
+  WidgetRef ref,
+  Track track,
+  List<Track> queue,
+) async {
+  final i = queue.indexWhere((t) => t.id == track.id);
+  await ref
+      .read(playerControllerProvider.notifier)
+      .playQueue(queue, i < 0 ? 0 : i);
+  if (context.mounted) openPracticeScreen(context);
+}
+
 void openPracticeScreen(BuildContext context) {
-  Navigator.of(context).push(
-    MaterialPageRoute<void>(builder: (_) => const PracticeScreen()),
-  );
+  Navigator.of(
+    context,
+  ).push(MaterialPageRoute<void>(builder: (_) => const PracticeScreen()));
 }
 
 /// 배속, 피치, 구간 반복, 점프 탐색을 한 곳에 모은 화면.
@@ -29,10 +47,14 @@ class PracticeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(playerControllerProvider);
+    // 이 화면은 위치를 쓰지 않는다. 상태를 통째로 보면 250ms마다
+    // 화면 전체가 다시 그려진다.
     final controller = ref.read(playerControllerProvider.notifier);
     final settings = ref.watch(settingsProvider);
-    final tempo = state.tempo;
+    final tempo = ref.watch(playerControllerProvider.select((s) => s.tempo));
+    final remember = ref.watch(
+      playerControllerProvider.select((s) => s.rememberTempo),
+    );
     final isLinked = tempo.mode == TempoMode.linked;
 
     return Scaffold(
@@ -40,96 +62,95 @@ class PracticeScreen extends ConsumerWidget {
         child: SafeArea(
           bottom: false,
           child: Column(
-        children: [
-          ScreenHeader(
-            title: '연습',
-            actions: [
-              HeaderAction(
-                icon: Icons.refresh,
-                label: '초기화',
-                onTap: () {
-                  controller.resetTempo();
-                  controller.clearLoop();
-                },
-              ),
-            ],
-          ),
-          Expanded(
-            child: ListView(
-              padding: EdgeInsets.fromLTRB(
-                AppSpace.gutter,
-                0,
-                AppSpace.gutter,
-                MediaQuery.of(context).viewInsets.bottom +
-                    shellBottomInset(context, ref) +
-                    24,
-              ),
-              children: [
-                SegmentBar(
-                  labels: [
-                    TempoMode.linked.label,
-                    TempoMode.independent.label,
-                  ],
-                  index: isLinked ? 0 : 1,
-                  onChanged: (i) => controller.setTempoMode(
-                    i == 0 ? TempoMode.linked : TempoMode.independent,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  tempo.mode.hint,
-                  textAlign: TextAlign.center,
-                  style: AppText.sub,
-                ),
-                const SizedBox(height: 20),
-
-                SpeedBlock(
-                  tempo: tempo,
-                  settings: settings,
-                  controller: controller,
-                  onRangeChange: (r) =>
-                      ref.read(settingsProvider.notifier).setSpeedRange(r),
-                ),
-                const SizedBox(height: 34),
-
-                PitchBlock(
-                  tempo: tempo,
-                  settings: settings,
-                  controller: controller,
-                ),
-                const SizedBox(height: 34),
-
-                const SectionLabel('구간 반복'),
-                const SizedBox(height: 10),
-                LoopBlock(state: state, controller: controller),
-                const SizedBox(height: 20),
-
-                const SectionLabel('점프 탐색'),
-                const SizedBox(height: 10),
-                JumpRow(settings: settings, controller: controller),
-                const SizedBox(height: 20),
-
-                RememberRow(
-                  remember: state.rememberTempo,
-                  onChanged: controller.setRememberTempo,
-                ),
-                if (settings.showGestureHint) ...[
-                  const SizedBox(height: 16),
-                  const Text(
-                    '재생 화면에서 두 손가락을 위아래로 끌면 속도, 좌우로 끌면 '
-                    '피치가 움직입니다. 두 손가락으로 두 번 두드리면 연동과 고정이 '
-                    '바뀝니다.',
-                    style: AppText.sub,
+            children: [
+              ScreenHeader(
+                title: '연습',
+                actions: [
+                  HeaderAction(
+                    icon: Icons.refresh,
+                    label: '초기화',
+                    onTap: () {
+                      controller.resetTempo();
+                      controller.clearLoop();
+                    },
                   ),
                 ],
-              ],
-            ),
-          ),
-        ],
+              ),
+              Expanded(
+                child: ListView(
+                  padding: EdgeInsets.fromLTRB(
+                    AppSpace.gutter,
+                    0,
+                    AppSpace.gutter,
+                    MediaQuery.of(context).viewInsets.bottom +
+                        shellBottomInset(context, ref) +
+                        24,
+                  ),
+                  children: [
+                    SegmentBar(
+                      labels: [
+                        TempoMode.linked.label,
+                        TempoMode.independent.label,
+                      ],
+                      index: isLinked ? 0 : 1,
+                      onChanged: (i) => controller.setTempoMode(
+                        i == 0 ? TempoMode.linked : TempoMode.independent,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      tempo.mode.hint,
+                      textAlign: TextAlign.center,
+                      style: AppText.sub,
+                    ),
+                    const SizedBox(height: 20),
+
+                    SpeedBlock(
+                      tempo: tempo,
+                      settings: settings,
+                      controller: controller,
+                      onRangeChange: (r) =>
+                          ref.read(settingsProvider.notifier).setSpeedRange(r),
+                    ),
+                    const SizedBox(height: 34),
+
+                    PitchBlock(
+                      tempo: tempo,
+                      settings: settings,
+                      controller: controller,
+                    ),
+                    const SizedBox(height: 34),
+
+                    const SectionLabel('구간 반복'),
+                    const SizedBox(height: 10),
+                    LoopBlock(controller: controller),
+                    const SizedBox(height: 20),
+
+                    const SectionLabel('점프 탐색'),
+                    const SizedBox(height: 10),
+                    JumpRow(settings: settings, controller: controller),
+                    const SizedBox(height: 20),
+
+                    RememberRow(
+                      remember: remember,
+                      onChanged: controller.setRememberTempo,
+                    ),
+                    if (settings.showGestureHint) ...[
+                      const SizedBox(height: 16),
+                      const Text(
+                        '재생 화면에서 두 손가락을 위아래로 끌면 속도, 좌우로 끌면 '
+                        '피치가 움직입니다. 두 손가락으로 두 번 두드리면 연동과 고정이 '
+                        '바뀝니다.',
+                        style: AppText.sub,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 }
-

@@ -7,7 +7,9 @@ import 'audio/sleep_timer.dart';
 import 'data/db/database.dart';
 import 'data/models/tempo.dart';
 import 'data/platform/native_media.dart';
+import 'data/models/mark.dart';
 import 'data/repo/library_repository.dart';
+import 'data/repo/mark_repository.dart';
 import 'data/models/app_settings.dart';
 import 'data/models/preset.dart';
 import 'data/repo/preset_repository.dart';
@@ -32,6 +34,38 @@ final libraryRepositoryProvider = Provider<LibraryRepository>(
 final presetRepositoryProvider = Provider<PresetRepository>(
   (ref) => PresetRepository(ref.watch(appDatabaseProvider)),
 );
+
+final markRepositoryProvider = Provider<MarkRepository>(
+  (ref) => MarkRepository(ref.watch(appDatabaseProvider)),
+);
+
+/// 지금 걸린 곡의 마크. 곡이 없으면 빈 목록이다.
+final marksProvider = StreamProvider<List<Mark>>((ref) {
+  final id = ref.watch(playerControllerProvider.select((s) => s.current?.id));
+  if (id == null) return Stream.value(const <Mark>[]);
+  return ref.watch(markRepositoryProvider).watchForTrack(id);
+});
+
+/// 곡마다 마크가 몇 개인지. 라이브러리 배지가 쓴다.
+final markCountsProvider = StreamProvider<Map<int, int>>(
+  (ref) => ref.watch(markRepositoryProvider).watchCounts(),
+);
+
+/// 지금 재생 위치가 걸려 있는 마크. 구간 마크가 점 마크보다 우선한다.
+final activeMarkProvider = Provider<Mark?>((ref) {
+  final marks = ref.watch(marksProvider).value ?? const <Mark>[];
+  if (marks.isEmpty) return null;
+  final at = ref.watch(playerControllerProvider.select((s) => s.position));
+  for (final m in marks) {
+    if (m.isLoop && at >= m.position && at < m.end!) return m;
+  }
+  Mark? last;
+  for (final m in marks) {
+    if (m.isLoop) continue;
+    if (m.position <= at) last = m;
+  }
+  return last;
+});
 
 final mediaImporterProvider = Provider<MediaImporter>(
   (ref) => MediaImporter(ref.watch(appDatabaseProvider)),

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
-import 'artwork_tone.dart';
 import 'paper.dart';
 
 /// 설정 화면의 목록 문법. 추가 효과 탭도 같은 것을 쓴다.
@@ -234,7 +233,6 @@ Future<T?> showChoiceDialog<T>({
   required T selected,
   required String Function(T) label,
 }) {
-  final tone = CoverScope.of(context);
   return showDialog<T>(
     context: context,
     builder: (dialogContext) => Dialog(
@@ -277,7 +275,7 @@ Future<T?> showChoiceDialog<T>({
                                         ? FontWeight.w600
                                         : FontWeight.w500,
                                     color: c == selected
-                                        ? tone.accentInk
+                                        ? AppColors.accent
                                         : AppColors.ink1,
                                   ),
                                 ),

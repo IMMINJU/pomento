@@ -73,6 +73,11 @@
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
 	<!-- 백그라운드 재생 -->
+	<!-- 이 키가 없으면 업로드한 빌드마다 App Store Connect에서 수출 규정
+	     질문에 손으로 답해야 하고, 답하기 전까지 테스터가 설치할 수 없다.
+	     쓰는 암호화는 Spotify Web API를 부르는 HTTPS뿐이라 면제 대상이다. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>

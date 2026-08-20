@@ -293,13 +293,19 @@ class _SpotifyPlayerViewState extends ConsumerState<SpotifyPlayerView> {
   Widget _titleRow(SpotifyState s) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpace.gutter),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          MarqueeText(text: s.trackName ?? '', style: AppText.title),
-          const SizedBox(height: 6),
-          LinkText(text: s.artistName ?? ''),
-        ],
+      // 폭을 못 박지 않으면 바깥 Column이 느슨한 제약을 줘서 이 줄이
+      // 글자 폭으로 쪼그라들고, 가운데 정렬처럼 보인다. 로컬 재생 화면은
+      // 왼쪽 정렬이라 두 화면이 다른 앱처럼 보였다.
+      child: SizedBox(
+        width: double.infinity,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            MarqueeText(text: s.trackName ?? '', style: AppText.title),
+            const SizedBox(height: 6),
+            LinkText(text: s.artistName ?? ''),
+          ],
+        ),
       ),
     );
   }

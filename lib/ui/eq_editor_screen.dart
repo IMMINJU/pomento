@@ -303,12 +303,12 @@ class _BandTabs extends StatelessWidget {
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
                       color: on
-                          ? AppColors.cover.withValues(alpha: 0.18)
+                          ? AppColors.accent.withValues(alpha: 0.18)
                           : AppColors.paperLo,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: on
-                            ? AppColors.cover.withValues(alpha: 0.5)
+                            ? AppColors.accent.withValues(alpha: 0.5)
                             : AppColors.line,
                       ),
                     ),
@@ -322,7 +322,7 @@ class _BandTabs extends StatelessWidget {
                             fontWeight:
                                 touched ? FontWeight.w700 : FontWeight.w400,
                             color: on
-                                ? AppColors.cover
+                                ? AppColors.accent
                                 : (touched ? AppColors.ink1 : AppColors.ink3),
                             fontFeatures: tabularFigures,
                           ),
@@ -333,7 +333,7 @@ class _BandTabs extends StatelessWidget {
                           height: 2,
                           margin: const EdgeInsets.only(top: 2),
                           color: bell
-                              ? (on ? AppColors.cover : AppColors.ink2)
+                              ? (on ? AppColors.accent : AppColors.ink2)
                               : Colors.transparent,
                         ),
                       ],

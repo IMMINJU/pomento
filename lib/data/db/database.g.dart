@@ -2345,6 +2345,458 @@ class TrackSettingsRowsCompanion extends UpdateCompanion<TrackSettingsRow> {
   }
 }
 
+class $MarkRowsTable extends MarkRows with TableInfo<$MarkRowsTable, MarkRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $MarkRowsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _trackIdMeta = const VerificationMeta(
+    'trackId',
+  );
+  @override
+  late final GeneratedColumn<int> trackId = GeneratedColumn<int>(
+    'track_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES tracks (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _positionMsMeta = const VerificationMeta(
+    'positionMs',
+  );
+  @override
+  late final GeneratedColumn<int> positionMs = GeneratedColumn<int>(
+    'position_ms',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _endMsMeta = const VerificationMeta('endMs');
+  @override
+  late final GeneratedColumn<int> endMs = GeneratedColumn<int>(
+    'end_ms',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _speedMeta = const VerificationMeta('speed');
+  @override
+  late final GeneratedColumn<double> speed = GeneratedColumn<double>(
+    'speed',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _pitchCentsMeta = const VerificationMeta(
+    'pitchCents',
+  );
+  @override
+  late final GeneratedColumn<double> pitchCents = GeneratedColumn<double>(
+    'pitch_cents',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    trackId,
+    positionMs,
+    endMs,
+    speed,
+    pitchCents,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'mark_rows';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<MarkRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('track_id')) {
+      context.handle(
+        _trackIdMeta,
+        trackId.isAcceptableOrUnknown(data['track_id']!, _trackIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_trackIdMeta);
+    }
+    if (data.containsKey('position_ms')) {
+      context.handle(
+        _positionMsMeta,
+        positionMs.isAcceptableOrUnknown(data['position_ms']!, _positionMsMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_positionMsMeta);
+    }
+    if (data.containsKey('end_ms')) {
+      context.handle(
+        _endMsMeta,
+        endMs.isAcceptableOrUnknown(data['end_ms']!, _endMsMeta),
+      );
+    }
+    if (data.containsKey('speed')) {
+      context.handle(
+        _speedMeta,
+        speed.isAcceptableOrUnknown(data['speed']!, _speedMeta),
+      );
+    }
+    if (data.containsKey('pitch_cents')) {
+      context.handle(
+        _pitchCentsMeta,
+        pitchCents.isAcceptableOrUnknown(data['pitch_cents']!, _pitchCentsMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  MarkRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return MarkRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      trackId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}track_id'],
+      )!,
+      positionMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}position_ms'],
+      )!,
+      endMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}end_ms'],
+      ),
+      speed: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}speed'],
+      ),
+      pitchCents: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}pitch_cents'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $MarkRowsTable createAlias(String alias) {
+    return $MarkRowsTable(attachedDatabase, alias);
+  }
+}
+
+class MarkRow extends DataClass implements Insertable<MarkRow> {
+  final int id;
+  final int trackId;
+  final int positionMs;
+  final int? endMs;
+  final double? speed;
+  final double? pitchCents;
+  final DateTime createdAt;
+  const MarkRow({
+    required this.id,
+    required this.trackId,
+    required this.positionMs,
+    this.endMs,
+    this.speed,
+    this.pitchCents,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['track_id'] = Variable<int>(trackId);
+    map['position_ms'] = Variable<int>(positionMs);
+    if (!nullToAbsent || endMs != null) {
+      map['end_ms'] = Variable<int>(endMs);
+    }
+    if (!nullToAbsent || speed != null) {
+      map['speed'] = Variable<double>(speed);
+    }
+    if (!nullToAbsent || pitchCents != null) {
+      map['pitch_cents'] = Variable<double>(pitchCents);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  MarkRowsCompanion toCompanion(bool nullToAbsent) {
+    return MarkRowsCompanion(
+      id: Value(id),
+      trackId: Value(trackId),
+      positionMs: Value(positionMs),
+      endMs: endMs == null && nullToAbsent
+          ? const Value.absent()
+          : Value(endMs),
+      speed: speed == null && nullToAbsent
+          ? const Value.absent()
+          : Value(speed),
+      pitchCents: pitchCents == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pitchCents),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory MarkRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return MarkRow(
+      id: serializer.fromJson<int>(json['id']),
+      trackId: serializer.fromJson<int>(json['trackId']),
+      positionMs: serializer.fromJson<int>(json['positionMs']),
+      endMs: serializer.fromJson<int?>(json['endMs']),
+      speed: serializer.fromJson<double?>(json['speed']),
+      pitchCents: serializer.fromJson<double?>(json['pitchCents']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'trackId': serializer.toJson<int>(trackId),
+      'positionMs': serializer.toJson<int>(positionMs),
+      'endMs': serializer.toJson<int?>(endMs),
+      'speed': serializer.toJson<double?>(speed),
+      'pitchCents': serializer.toJson<double?>(pitchCents),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  MarkRow copyWith({
+    int? id,
+    int? trackId,
+    int? positionMs,
+    Value<int?> endMs = const Value.absent(),
+    Value<double?> speed = const Value.absent(),
+    Value<double?> pitchCents = const Value.absent(),
+    DateTime? createdAt,
+  }) => MarkRow(
+    id: id ?? this.id,
+    trackId: trackId ?? this.trackId,
+    positionMs: positionMs ?? this.positionMs,
+    endMs: endMs.present ? endMs.value : this.endMs,
+    speed: speed.present ? speed.value : this.speed,
+    pitchCents: pitchCents.present ? pitchCents.value : this.pitchCents,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  MarkRow copyWithCompanion(MarkRowsCompanion data) {
+    return MarkRow(
+      id: data.id.present ? data.id.value : this.id,
+      trackId: data.trackId.present ? data.trackId.value : this.trackId,
+      positionMs: data.positionMs.present
+          ? data.positionMs.value
+          : this.positionMs,
+      endMs: data.endMs.present ? data.endMs.value : this.endMs,
+      speed: data.speed.present ? data.speed.value : this.speed,
+      pitchCents: data.pitchCents.present
+          ? data.pitchCents.value
+          : this.pitchCents,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MarkRow(')
+          ..write('id: $id, ')
+          ..write('trackId: $trackId, ')
+          ..write('positionMs: $positionMs, ')
+          ..write('endMs: $endMs, ')
+          ..write('speed: $speed, ')
+          ..write('pitchCents: $pitchCents, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, trackId, positionMs, endMs, speed, pitchCents, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is MarkRow &&
+          other.id == this.id &&
+          other.trackId == this.trackId &&
+          other.positionMs == this.positionMs &&
+          other.endMs == this.endMs &&
+          other.speed == this.speed &&
+          other.pitchCents == this.pitchCents &&
+          other.createdAt == this.createdAt);
+}
+
+class MarkRowsCompanion extends UpdateCompanion<MarkRow> {
+  final Value<int> id;
+  final Value<int> trackId;
+  final Value<int> positionMs;
+  final Value<int?> endMs;
+  final Value<double?> speed;
+  final Value<double?> pitchCents;
+  final Value<DateTime> createdAt;
+  const MarkRowsCompanion({
+    this.id = const Value.absent(),
+    this.trackId = const Value.absent(),
+    this.positionMs = const Value.absent(),
+    this.endMs = const Value.absent(),
+    this.speed = const Value.absent(),
+    this.pitchCents = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  MarkRowsCompanion.insert({
+    this.id = const Value.absent(),
+    required int trackId,
+    required int positionMs,
+    this.endMs = const Value.absent(),
+    this.speed = const Value.absent(),
+    this.pitchCents = const Value.absent(),
+    required DateTime createdAt,
+  }) : trackId = Value(trackId),
+       positionMs = Value(positionMs),
+       createdAt = Value(createdAt);
+  static Insertable<MarkRow> custom({
+    Expression<int>? id,
+    Expression<int>? trackId,
+    Expression<int>? positionMs,
+    Expression<int>? endMs,
+    Expression<double>? speed,
+    Expression<double>? pitchCents,
+    Expression<DateTime>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (trackId != null) 'track_id': trackId,
+      if (positionMs != null) 'position_ms': positionMs,
+      if (endMs != null) 'end_ms': endMs,
+      if (speed != null) 'speed': speed,
+      if (pitchCents != null) 'pitch_cents': pitchCents,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  MarkRowsCompanion copyWith({
+    Value<int>? id,
+    Value<int>? trackId,
+    Value<int>? positionMs,
+    Value<int?>? endMs,
+    Value<double?>? speed,
+    Value<double?>? pitchCents,
+    Value<DateTime>? createdAt,
+  }) {
+    return MarkRowsCompanion(
+      id: id ?? this.id,
+      trackId: trackId ?? this.trackId,
+      positionMs: positionMs ?? this.positionMs,
+      endMs: endMs ?? this.endMs,
+      speed: speed ?? this.speed,
+      pitchCents: pitchCents ?? this.pitchCents,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (trackId.present) {
+      map['track_id'] = Variable<int>(trackId.value);
+    }
+    if (positionMs.present) {
+      map['position_ms'] = Variable<int>(positionMs.value);
+    }
+    if (endMs.present) {
+      map['end_ms'] = Variable<int>(endMs.value);
+    }
+    if (speed.present) {
+      map['speed'] = Variable<double>(speed.value);
+    }
+    if (pitchCents.present) {
+      map['pitch_cents'] = Variable<double>(pitchCents.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MarkRowsCompanion(')
+          ..write('id: $id, ')
+          ..write('trackId: $trackId, ')
+          ..write('positionMs: $positionMs, ')
+          ..write('endMs: $endMs, ')
+          ..write('speed: $speed, ')
+          ..write('pitchCents: $pitchCents, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $KeyValuesTable extends KeyValues
     with TableInfo<$KeyValuesTable, KeyValue> {
   @override
@@ -2562,6 +3014,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $PresetRowsTable presetRows = $PresetRowsTable(this);
   late final $TrackSettingsRowsTable trackSettingsRows =
       $TrackSettingsRowsTable(this);
+  late final $MarkRowsTable markRows = $MarkRowsTable(this);
   late final $KeyValuesTable keyValues = $KeyValuesTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
@@ -2573,6 +3026,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     playlistEntries,
     presetRows,
     trackSettingsRows,
+    markRows,
     keyValues,
   ];
   @override
@@ -2597,6 +3051,13 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('track_settings_rows', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'tracks',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('mark_rows', kind: UpdateKind.delete)],
     ),
   ]);
 }
@@ -2678,6 +3139,25 @@ final class $$TracksTableReferences
     final cache = $_typedResult.readTableOrNull(
       _trackSettingsRowsRefsTable($_db),
     );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$MarkRowsTable, List<MarkRow>> _markRowsRefsTable(
+    _$AppDatabase db,
+  ) => MultiTypedResultKey.fromTable(
+    db.markRows,
+    aliasName: 'tracks__id__mark_rows__track_id',
+  );
+
+  $$MarkRowsTableProcessedTableManager get markRowsRefs {
+    final manager = $$MarkRowsTableTableManager(
+      $_db,
+      $_db.markRows,
+    ).filter((f) => f.trackId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_markRowsRefsTable($_db));
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
     );
@@ -2809,6 +3289,31 @@ class $$TracksTableFilterComposer
           }) => $$TrackSettingsRowsTableFilterComposer(
             $db: $db,
             $table: $db.trackSettingsRows,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> markRowsRefs(
+    Expression<bool> Function($$MarkRowsTableFilterComposer f) f,
+  ) {
+    final $$MarkRowsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.markRows,
+      getReferencedColumn: (t) => t.trackId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MarkRowsTableFilterComposer(
+            $db: $db,
+            $table: $db.markRows,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -3020,6 +3525,31 @@ class $$TracksTableAnnotationComposer
         );
     return f(composer);
   }
+
+  Expression<T> markRowsRefs<T extends Object>(
+    Expression<T> Function($$MarkRowsTableAnnotationComposer a) f,
+  ) {
+    final $$MarkRowsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.markRows,
+      getReferencedColumn: (t) => t.trackId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$MarkRowsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.markRows,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$TracksTableTableManager
@@ -3038,6 +3568,7 @@ class $$TracksTableTableManager
           PrefetchHooks Function({
             bool playlistEntriesRefs,
             bool trackSettingsRowsRefs,
+            bool markRowsRefs,
           })
         > {
   $$TracksTableTableManager(_$AppDatabase db, $TracksTable table)
@@ -3126,12 +3657,17 @@ class $$TracksTableTableManager
               )
               .toList(),
           prefetchHooksCallback:
-              ({playlistEntriesRefs = false, trackSettingsRowsRefs = false}) {
+              ({
+                playlistEntriesRefs = false,
+                trackSettingsRowsRefs = false,
+                markRowsRefs = false,
+              }) {
                 return PrefetchHooks(
                   db: db,
                   explicitlyWatchedTables: [
                     if (playlistEntriesRefs) db.playlistEntries,
                     if (trackSettingsRowsRefs) db.trackSettingsRows,
+                    if (markRowsRefs) db.markRows,
                   ],
                   addJoins: null,
                   getPrefetchedDataCallback: (items) async {
@@ -3178,6 +3714,23 @@ class $$TracksTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (markRowsRefs)
+                        await $_getPrefetchedData<Track, $TracksTable, MarkRow>(
+                          currentTable: table,
+                          referencedTable: $$TracksTableReferences
+                              ._markRowsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$TracksTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).markRowsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.trackId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -3201,6 +3754,7 @@ typedef $$TracksTableProcessedTableManager =
       PrefetchHooks Function({
         bool playlistEntriesRefs,
         bool trackSettingsRowsRefs,
+        bool markRowsRefs,
       })
     >;
 typedef $$PlaylistsTableCreateCompanionBuilder =
@@ -4456,6 +5010,359 @@ typedef $$TrackSettingsRowsTableProcessedTableManager =
       TrackSettingsRow,
       PrefetchHooks Function({bool trackId})
     >;
+typedef $$MarkRowsTableCreateCompanionBuilder =
+    MarkRowsCompanion Function({
+      Value<int> id,
+      required int trackId,
+      required int positionMs,
+      Value<int?> endMs,
+      Value<double?> speed,
+      Value<double?> pitchCents,
+      required DateTime createdAt,
+    });
+typedef $$MarkRowsTableUpdateCompanionBuilder =
+    MarkRowsCompanion Function({
+      Value<int> id,
+      Value<int> trackId,
+      Value<int> positionMs,
+      Value<int?> endMs,
+      Value<double?> speed,
+      Value<double?> pitchCents,
+      Value<DateTime> createdAt,
+    });
+
+final class $$MarkRowsTableReferences
+    extends BaseReferences<_$AppDatabase, $MarkRowsTable, MarkRow> {
+  $$MarkRowsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $TracksTable _trackIdTable(_$AppDatabase db) =>
+      db.tracks.createAlias('mark_rows__track_id__tracks__id');
+
+  $$TracksTableProcessedTableManager get trackId {
+    final $_column = $_itemColumn<int>('track_id')!;
+
+    final manager = $$TracksTableTableManager(
+      $_db,
+      $_db.tracks,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_trackIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$MarkRowsTableFilterComposer
+    extends Composer<_$AppDatabase, $MarkRowsTable> {
+  $$MarkRowsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get positionMs => $composableBuilder(
+    column: $table.positionMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get endMs => $composableBuilder(
+    column: $table.endMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get speed => $composableBuilder(
+    column: $table.speed,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get pitchCents => $composableBuilder(
+    column: $table.pitchCents,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$TracksTableFilterComposer get trackId {
+    final $$TracksTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.trackId,
+      referencedTable: $db.tracks,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TracksTableFilterComposer(
+            $db: $db,
+            $table: $db.tracks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$MarkRowsTableOrderingComposer
+    extends Composer<_$AppDatabase, $MarkRowsTable> {
+  $$MarkRowsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get positionMs => $composableBuilder(
+    column: $table.positionMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get endMs => $composableBuilder(
+    column: $table.endMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get speed => $composableBuilder(
+    column: $table.speed,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get pitchCents => $composableBuilder(
+    column: $table.pitchCents,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$TracksTableOrderingComposer get trackId {
+    final $$TracksTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.trackId,
+      referencedTable: $db.tracks,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TracksTableOrderingComposer(
+            $db: $db,
+            $table: $db.tracks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$MarkRowsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $MarkRowsTable> {
+  $$MarkRowsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get positionMs => $composableBuilder(
+    column: $table.positionMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get endMs =>
+      $composableBuilder(column: $table.endMs, builder: (column) => column);
+
+  GeneratedColumn<double> get speed =>
+      $composableBuilder(column: $table.speed, builder: (column) => column);
+
+  GeneratedColumn<double> get pitchCents => $composableBuilder(
+    column: $table.pitchCents,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  $$TracksTableAnnotationComposer get trackId {
+    final $$TracksTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.trackId,
+      referencedTable: $db.tracks,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TracksTableAnnotationComposer(
+            $db: $db,
+            $table: $db.tracks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$MarkRowsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $MarkRowsTable,
+          MarkRow,
+          $$MarkRowsTableFilterComposer,
+          $$MarkRowsTableOrderingComposer,
+          $$MarkRowsTableAnnotationComposer,
+          $$MarkRowsTableCreateCompanionBuilder,
+          $$MarkRowsTableUpdateCompanionBuilder,
+          (MarkRow, $$MarkRowsTableReferences),
+          MarkRow,
+          PrefetchHooks Function({bool trackId})
+        > {
+  $$MarkRowsTableTableManager(_$AppDatabase db, $MarkRowsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$MarkRowsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$MarkRowsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$MarkRowsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<int> trackId = const Value.absent(),
+                Value<int> positionMs = const Value.absent(),
+                Value<int?> endMs = const Value.absent(),
+                Value<double?> speed = const Value.absent(),
+                Value<double?> pitchCents = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+              }) => MarkRowsCompanion(
+                id: id,
+                trackId: trackId,
+                positionMs: positionMs,
+                endMs: endMs,
+                speed: speed,
+                pitchCents: pitchCents,
+                createdAt: createdAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required int trackId,
+                required int positionMs,
+                Value<int?> endMs = const Value.absent(),
+                Value<double?> speed = const Value.absent(),
+                Value<double?> pitchCents = const Value.absent(),
+                required DateTime createdAt,
+              }) => MarkRowsCompanion.insert(
+                id: id,
+                trackId: trackId,
+                positionMs: positionMs,
+                endMs: endMs,
+                speed: speed,
+                pitchCents: pitchCents,
+                createdAt: createdAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$MarkRowsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({trackId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (trackId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.trackId,
+                                referencedTable: $$MarkRowsTableReferences
+                                    ._trackIdTable(db),
+                                referencedColumn: $$MarkRowsTableReferences
+                                    ._trackIdTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$MarkRowsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $MarkRowsTable,
+      MarkRow,
+      $$MarkRowsTableFilterComposer,
+      $$MarkRowsTableOrderingComposer,
+      $$MarkRowsTableAnnotationComposer,
+      $$MarkRowsTableCreateCompanionBuilder,
+      $$MarkRowsTableUpdateCompanionBuilder,
+      (MarkRow, $$MarkRowsTableReferences),
+      MarkRow,
+      PrefetchHooks Function({bool trackId})
+    >;
 typedef $$KeyValuesTableCreateCompanionBuilder =
     KeyValuesCompanion Function({
       required String key,
@@ -4603,6 +5510,8 @@ class $AppDatabaseManager {
       $$PresetRowsTableTableManager(_db, _db.presetRows);
   $$TrackSettingsRowsTableTableManager get trackSettingsRows =>
       $$TrackSettingsRowsTableTableManager(_db, _db.trackSettingsRows);
+  $$MarkRowsTableTableManager get markRows =>
+      $$MarkRowsTableTableManager(_db, _db.markRows);
   $$KeyValuesTableTableManager get keyValues =>
       $$KeyValuesTableTableManager(_db, _db.keyValues);
 }

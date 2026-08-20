@@ -103,7 +103,7 @@ class QueuePill extends StatelessWidget {
                 child: FractionallySizedBox(
                   alignment: Alignment.centerLeft,
                   widthFactor: total == 0 ? 0 : at / total,
-                  child: ColoredBox(color: tone.accent),
+                  child: ColoredBox(color: tone.fill),
                 ),
               ),
             ),
@@ -116,7 +116,8 @@ class QueuePill extends StatelessWidget {
 
 /// 지난 시간과 남은 시간.
 ///
-/// 색이 역할을 나눈다. 지난 시간은 강조색, 남은 시간은 회색.
+/// 둘 다 회색이다. 진행 정도는 바로 위 진행바가 말하므로 숫자까지
+/// 색을 쓰면 강조가 겹친다.
 class TimeRow extends StatelessWidget {
   const TimeRow({super.key, required this.position, required this.total});
 
@@ -125,12 +126,11 @@ class TimeRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tone = CoverScope.of(context);
     return Row(
       children: [
         Text(
           formatDuration(position),
-          style: AppText.num.copyWith(fontSize: 12, color: tone.accentInk),
+          style: AppText.num.copyWith(fontSize: 12, color: AppColors.ink3),
         ),
         const Spacer(),
         Text(
@@ -165,7 +165,6 @@ class AbPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tone = CoverScope.of(context);
     final on = loopA != null || loopB != null;
 
     return GestureDetector(
@@ -188,7 +187,7 @@ class AbPill extends StatelessWidget {
         margin: const EdgeInsets.symmetric(horizontal: 6),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: on ? tone.accentTint : AppColors.paperHi,
+          color: on ? AppColors.accentTint : AppColors.paperHi,
           borderRadius: BorderRadius.circular(AppRadius.pill),
         ),
         child: Text(
@@ -202,7 +201,7 @@ class AbPill extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
           style: AppText.num.copyWith(
             fontSize: 13,
-            color: on ? tone.accentInk : AppColors.ink2,
+            color: on ? AppColors.accent : AppColors.ink2,
           ),
         ),
       ),
@@ -295,11 +294,10 @@ class ToggleIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tone = CoverScope.of(context);
     return RoundButton(
       filled: false,
       onTap: onTap,
-      child: Icon(icon, size: 22, color: on ? tone.accentInk : AppColors.hair),
+      child: Icon(icon, size: 22, color: on ? AppColors.accent : AppColors.hair),
     );
   }
 }

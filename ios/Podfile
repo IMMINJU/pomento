@@ -48,6 +48,35 @@ post_install do |installer|
       # 것이 있으면 Xcode가 경고를 쏟는다. 안드로이드에서 compileSdk를
       # 맞춰주는 것과 같은 이유로 여기서 한 번에 올린다.
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
+
+      # permission_handler는 권한마다 전략 파일을 따로 두고 매크로로 켠다.
+      # 지금은 헤더 기본값이 전부 0이라 아무것도 안 걸어도 꺼지지만,
+      # 기본값에 기대면 판올림 한 번에 조용히 뒤집힌다.
+      #
+      # PERMISSION_MEDIA_LIBRARY가 1이 되면 바이너리에 MPMediaLibrary
+      # 호출이 들어가고, 그러면 App Store 심사가 Info.plist에
+      # NSAppleMusicUsageDescription을 넣으라고 요구한다(ITMS-90683).
+      # 그 키를 넣지 않는 것이 이 앱의 전제라 여기서 0으로 못 박는다.
+      #
+      # iOS에서는 권한을 하나도 요청하지 않는다. 요청하는 자리는 전부
+      # Platform.isAndroid로 막혀 있다.
+      config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= [
+        '$(inherited)',
+        'PERMISSION_MEDIA_LIBRARY=0',
+        'PERMISSION_EVENTS=0',
+        'PERMISSION_REMINDERS=0',
+        'PERMISSION_CONTACTS=0',
+        'PERMISSION_CAMERA=0',
+        'PERMISSION_MICROPHONE=0',
+        'PERMISSION_SPEECH_RECOGNIZER=0',
+        'PERMISSION_PHOTOS=0',
+        'PERMISSION_LOCATION=0',
+        'PERMISSION_NOTIFICATIONS=0',
+        'PERMISSION_SENSORS=0',
+        'PERMISSION_BLUETOOTH=0',
+        'PERMISSION_APP_TRACKING_TRANSPARENCY=0',
+        'PERMISSION_CRITICAL_ALERTS=0',
+      ]
     end
   end
 end

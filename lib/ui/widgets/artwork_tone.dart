@@ -21,16 +21,16 @@ import 'artwork.dart';
 /// 밝기 차이로 경계를 잡는데 그것이 없으니 색상으로만 구분하고, 그래서
 /// 두 색이 서로 밀어내는 것처럼 보인다.
 ///
-/// **강조색.** 진행선과 바뀐 값에 쓴다. 색이 있으면 재생 중이라는 뜻이다.
-/// 미색 종이 위에 놓이므로 판보다 훨씬 어둡게 잡아야 글자가 읽힌다.
+/// **채움색.** 진행선과 상단바 큐 밑줄, 미니 진행선에 쓴다. 글자에는
+/// 쓰지 않는다. 값과 조작부는 [AppColors.accent]가 맡는다. 자켓에서 온
+/// 색이 글자까지 칠하면 곡이 바뀔 때마다 화면 전체가 같이 흔들린다.
 @immutable
 class CoverTone {
   const CoverTone({
     required this.plateA,
     required this.plateB,
     required this.plateBase,
-    required this.accent,
-    required this.accentInk,
+    required this.fill,
   });
 
   /// 자켓을 아직 못 읽었거나 없는 경우. 시안의 기본값과 같다.
@@ -38,8 +38,7 @@ class CoverTone {
     plateA: Color(0xFF6E90BE),
     plateB: Color(0xFFC08872),
     plateBase: Color(0xFF95A099),
-    accent: AppColors.cover,
-    accentInk: AppColors.coverInk,
+    fill: AppColors.cover,
   );
 
   /// 판 왼쪽 위와 오른쪽 아래. 둘의 L*가 같다.
@@ -49,14 +48,8 @@ class CoverTone {
   /// 두 색 사이를 메우는 바탕. 한 단계 밝고 채도가 낮다.
   final Color plateBase;
 
-  /// 채움과 선에 쓴다. 진행바, 슬라이더, 알약 배경.
-  final Color accent;
-
-  /// 종이 위의 글자에 쓴다. accent보다 어둡다.
-  final Color accentInk;
-
-  Color get accentTint => accent.withValues(alpha: 0.11);
-  Color get accentEdge => accent.withValues(alpha: 0.32);
+  /// 채움에만 쓴다. 진행선, 상단바 큐 밑줄, 미니 진행선, 미니 바탕.
+  final Color fill;
 
   @override
   bool operator ==(Object other) =>
@@ -64,12 +57,10 @@ class CoverTone {
       other.plateA == plateA &&
       other.plateB == plateB &&
       other.plateBase == plateBase &&
-      other.accent == accent &&
-      other.accentInk == accentInk;
+      other.fill == fill;
 
   @override
-  int get hashCode =>
-      Object.hash(plateA, plateB, plateBase, accent, accentInk);
+  int get hashCode => Object.hash(plateA, plateB, plateBase, fill);
 }
 
 /// 판의 밝기. 등명도는 두 색이 서로 같으면 되는 것이지 특정 값일 이유가
@@ -77,9 +68,8 @@ class CoverTone {
 /// 어두울수록 sRGB에서 채도를 더 쓸 수 있어 색이 확실히 보인다.
 const double _plateL = 62;
 
-/// 강조색. 채움용과 글자용을 따로 둔다.
-const double _accentL = 46;
-const double _accentInkL = 38;
+/// 채움색의 명도. 종이 위 2px 선이라 이 정도면 보인다.
+const double _fillL = 46;
 
 /// 자켓에서 색 둘을 뽑는다.
 ///
@@ -190,8 +180,7 @@ class CoverAnalyzer {
       plateA: _lch(_plateL, chroma, h1),
       plateB: _lch(_plateL, c2, h2),
       plateBase: _lch(_plateL + 10, chroma * 0.30, (h1 + h2) / 2),
-      accent: _lch(_accentL, math.max(chroma, 14) * 1.4, h1),
-      accentInk: _lch(_accentInkL, math.max(chroma, 14) * 1.3, h1),
+      fill: _lch(_fillL, math.max(chroma, 14) * 1.4, h1),
     );
   }
 
@@ -209,8 +198,7 @@ class CoverAnalyzer {
       plateA: _lch(_plateL, chroma, h),
       plateB: _lch(_plateL, chroma * 0.85, h + math.pi * 0.55),
       plateBase: _lch(_plateL + 10, chroma * 0.30, h + math.pi * 0.28),
-      accent: _lch(_accentL, math.max(chroma, 14) * 1.4, h),
-      accentInk: _lch(_accentInkL, math.max(chroma, 14) * 1.3, h),
+      fill: _lch(_fillL, math.max(chroma, 14) * 1.4, h),
     );
   }
 
@@ -223,8 +211,7 @@ class CoverAnalyzer {
       plateA: _lch(_plateL, 12, cool),
       plateB: _lch(_plateL, 12, warm),
       plateBase: _lch(_plateL + 10, 4, (warm + cool) / 2),
-      accent: _lch(_accentL, 10, cool),
-      accentInk: _lch(_accentInkL, 9, cool),
+      fill: _lch(_fillL, 10, cool),
     );
   }
 

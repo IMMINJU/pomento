@@ -76,8 +76,7 @@ class Artwork extends StatelessWidget {
     if (resolved == null) {
       final s = seed ?? artworkSeedOf(track);
       final color = placeholderColorOf(s);
-      final letter =
-          s.isEmpty ? '♪' : s.characters.first.toUpperCase();
+      final letter = s.isEmpty ? '♪' : s.characters.first.toUpperCase();
       return Container(
         width: size,
         height: size,
@@ -105,6 +104,11 @@ class Artwork extends StatelessWidget {
       );
     }
 
+    // 그릴 크기만큼만 푼다. 이걸 안 걸면 1000px짜리 자켓이 44px 섬네일
+    // 자리에서도 통째로 풀려서 한 장에 4MB를 먹는다. 목록을 훑으면
+    // 그만큼이 계속 쌓인다.
+    final px = (size * MediaQuery.devicePixelRatioOf(context)).round();
+
     return ClipRRect(
       borderRadius: br,
       child: Image.file(
@@ -112,13 +116,12 @@ class Artwork extends StatelessWidget {
         key: ValueKey(resolved),
         width: size,
         height: size,
+        cacheWidth: px,
+        cacheHeight: px,
         fit: BoxFit.cover,
         gaplessPlayback: true,
-        errorBuilder: (_, _, _) => Container(
-          width: size,
-          height: size,
-          color: AppColors.paperLo,
-        ),
+        errorBuilder: (_, _, _) =>
+            Container(width: size, height: size, color: AppColors.paperLo),
       ),
     );
   }

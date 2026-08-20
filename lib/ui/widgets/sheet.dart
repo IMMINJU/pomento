@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
-import 'artwork_tone.dart';
 import 'common.dart';
 import 'paper.dart';
 
@@ -100,10 +99,9 @@ class SheetTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tone = CoverScope.of(context);
     final color = danger
         ? AppColors.warn
-        : (selected ? tone.accentInk : AppColors.ink1);
+        : (selected ? AppColors.accent : AppColors.ink1);
 
     return Material(
       color: Colors.transparent,
@@ -165,7 +163,6 @@ Future<String?> askText(
   required String hint,
 }) {
   final controller = TextEditingController();
-  final tone = CoverScope.of(context);
   return showDialog<String>(
     context: context,
     builder: (dialogContext) => Dialog(
@@ -194,7 +191,7 @@ Future<String?> askText(
                     controller: controller,
                     autofocus: true,
                     style: AppText.body,
-                    cursorColor: tone.accent,
+                    cursorColor: AppColors.accent,
                     decoration: InputDecoration(
                       hintText: hint,
                       hintStyle: AppText.body.copyWith(color: AppColors.hair),

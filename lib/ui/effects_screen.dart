@@ -67,7 +67,7 @@ class _EffectsScreenState extends ConsumerState<EffectsScreen> {
                         icon: Icon(
                           _searching ? Icons.search_off : Icons.search,
                           size: 22,
-                          color: _searching ? AppColors.cover : AppColors.ink2,
+                          color: _searching ? AppColors.ink1 : AppColors.ink2,
                         ),
                         onPressed: () => setState(() {
                           _searching = !_searching;
@@ -354,7 +354,7 @@ class _PresetRow extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                  color: selected ? AppColors.cover : AppColors.ink1,
+                  color: selected ? AppColors.accent : AppColors.ink1,
                 ),
               ),
             ),
@@ -572,7 +572,7 @@ class _SliderRow extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.cover,
+                  color: AppColors.accent,
                   fontFeatures: tabularFigures,
                 ),
               ),
@@ -613,18 +613,15 @@ class _Chip extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
           decoration: BoxDecoration(
-            color: selected ? AppColors.cover : Colors.transparent,
+            color: selected ? AppColors.ink1 : AppColors.paperLo,
             borderRadius: BorderRadius.circular(AppRadius.pill),
-            border: Border.all(
-              color: selected ? AppColors.cover : AppColors.line,
-            ),
           ),
           child: Text(
             label,
             style: TextStyle(
               fontSize: 13,
               fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-              color: selected ? AppColors.paper : AppColors.ink2,
+              color: selected ? AppColors.paperHi : AppColors.ink2,
             ),
           ),
         ),
@@ -883,16 +880,15 @@ class _FilterPill extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
         decoration: BoxDecoration(
-          color: selected ? AppColors.cover : Colors.transparent,
+          color: selected ? AppColors.ink1 : AppColors.paperLo,
           borderRadius: BorderRadius.circular(AppRadius.pill),
-          border: Border.all(color: AppColors.cover),
         ),
         child: Text(
           label,
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
-            color: selected ? AppColors.paper : AppColors.cover,
+            color: selected ? AppColors.paperHi : AppColors.ink2,
           ),
         ),
       ),
