@@ -122,9 +122,17 @@
 	<array>
 		<string>spotify</string>
 	</array>
-	<!-- NSAppleMusicUsageDescription을 일부러 넣지 않는다.
-	     이 키가 없으면 MPMediaLibrary 접근이 시스템에서 막힌다. 애플뮤직
-	     보관함 동기화가 자켓과 태그를 카탈로그 것으로 바꾸는 문제를
-	     구조적으로 피하려는 선택이다. -->
+	<!-- 음악 앱 보관함(MPMediaLibrary)을 읽는다. 이 키가 없으면 조회
+	     시점에 시스템이 앱을 종료시킨다.
+
+	     한동안 이 키를 일부러 비워두었다. 보관함 동기화가 자켓과 태그를
+	     애플 카탈로그 것으로 바꾸는 문제를 접근 자체를 막아 피하려는
+	     선택이었다. 지금은 보관함에 있는 음원을 읽되 태그와 자켓은 파일에
+	     박힌 값을 먼저 보고, 못 읽을 때만 음악 앱 값으로 떨어진다.
+	     AppDelegate.swift의 libraryMetadata를 볼 것.
+
+	     이 API로 원본 파일에 쓰는 길은 없다. 읽기만 한다. -->
+	<key>NSAppleMusicUsageDescription</key>
+	<string>아이폰 음악 앱에 있는 음원을 Pomento 라이브러리에 넣기 위해 읽습니다. 곡을 바꾸거나 지우지 않습니다.</string>
 </dict>
 </plist>

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../data/db/database.dart';
+import '../data/models/import_log.dart';
 import '../data/platform/native_media.dart';
 import '../data/storage/media_importer.dart';
 import '../providers.dart';
@@ -15,10 +16,9 @@ import 'widgets/surface.dart';
 
 /// 음원을 라이브러리에 넣는 시트.
 ///
-/// 안드로이드는 기기에 이미 있는 음원을 훑어서 고르게 하고, iOS는 파일 앱에서
-/// 앱 폴더로 옮기는 방법을 안내한다. iOS에서 애플뮤직 보관함에는 접근하지
-/// 않는다. Info.plist에 NSAppleMusicUsageDescription을 넣지 않아 접근 자체가
-/// 막혀 있다.
+/// 기기에 이미 있는 음원을 훑어서 고르게 한다. 안드로이드는 MediaStore,
+/// iOS는 음악 앱 보관함이 그 자리다. iOS에는 파일 앱으로 앱 폴더에 직접
+/// 옮기는 길도 함께 둔다. 곡 정보를 원본 그대로 받으려면 그쪽이 확실하다.
 class ImportSheet extends ConsumerStatefulWidget {
   const ImportSheet({super.key});
 
@@ -84,10 +84,15 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
     if (_found == null) return _chooser();
 
     if (_found!.isEmpty) {
-      return const EmptyHint(
+      return EmptyHint(
         icon: Icons.search_off,
-        title: '기기에서 음원을 찾지 못했습니다',
-        body: '파일에서 직접 고르거나, 권한을 허용했는지 확인하세요',
+        title: Platform.isIOS
+            ? '읽을 수 있는 곡이 없습니다'
+            : '기기에서 음원을 찾지 못했습니다',
+        body: Platform.isIOS
+            ? '음악 앱 접근을 허용했는지 확인하세요. 애플뮤직에서 받은 곡은 '
+                '보호되어 있어 목록에 나오지 않습니다'
+            : '파일에서 직접 고르거나, 권한을 허용했는지 확인하세요',
       );
     }
 
@@ -128,15 +133,15 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       children: [
-        if (Platform.isAndroid) ...[
-          _option(
-            icon: Icons.phone_android,
-            title: '기기에 있는 음악 찾기',
-            body: '폰에 저장된 음원을 훑어서 고를 수 있게 보여줍니다',
-            onTap: _scanDevice,
-          ),
-          const SizedBox(height: 12),
-        ],
+        _option(
+          icon: Platform.isIOS ? Icons.library_music : Icons.phone_android,
+          title: Platform.isIOS ? '음악 앱에 있는 곡 찾기' : '기기에 있는 음악 찾기',
+          body: Platform.isIOS
+              ? '음악 앱 보관함을 훑어서 고를 수 있게 보여줍니다'
+              : '폰에 저장된 음원을 훑어서 고를 수 있게 보여줍니다',
+          onTap: _scanDevice,
+        ),
+        const SizedBox(height: 12),
         _option(
           icon: Icons.folder_open,
           title: '파일에서 고르기',
@@ -154,46 +159,50 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
         ),
         const SizedBox(height: 24),
         if (Platform.isIOS) ...[
-          const SectionLabel('아이폰에 파일 넣는 방법'),
+          const SectionLabel('컴퓨터에서 직접 넣는 방법'),
           const SizedBox(height: 12),
           _step(1, '파일 앱 열기', '아이폰 기본 파일 앱을 실행하세요'),
           _step(2, '내 iPhone 폴더로', "위치 목록에서 '내 iPhone'을 누르면 Pomento 폴더가 보입니다"),
           _step(3, '음원 옮겨놓기', 'mp3나 flac 파일을 그 폴더에 넣으면 앱에서 바로 보입니다'),
           const SizedBox(height: 20),
         ],
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: const Color(0xFFFF8C8C).withValues(alpha: 0.10),
-            borderRadius: BorderRadius.circular(AppRadius.card),
-            border: Border.all(
-              color: const Color(0xFFFF8C8C).withValues(alpha: 0.28),
+        if (Platform.isIOS)
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFF8C8C).withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(AppRadius.card),
+              border: Border.all(
+                color: const Color(0xFFFF8C8C).withValues(alpha: 0.28),
+              ),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.warning_amber_rounded,
+                    size: 20, color: Color(0xFFFF8C8C)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('곡 정보는 파일에서 먼저 읽습니다',
+                          style: AppText.body),
+                      const SizedBox(height: 4),
+                      Text(
+                        '음악 앱에서 가져올 때 자켓과 곡 정보를 파일에 박힌 태그에서 '
+                        '먼저 읽습니다. 파일에서 못 읽으면 음악 앱이 가진 값을 쓰는데, '
+                        '보관함 동기화가 켜져 있었다면 그 값이 애플 카탈로그 것으로 '
+                        '바뀌어 있을 수 있습니다. 가져온 뒤 어느 쪽에서 읽었는지 '
+                        '알려드립니다.',
+                        style: AppText.sub.copyWith(color: AppColors.ink2),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Icon(Icons.warning_amber_rounded,
-                  size: 20, color: Color(0xFFFF8C8C)),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('음악 앱을 거치지 마세요', style: AppText.body),
-                    const SizedBox(height: 4),
-                    Text(
-                      '애플뮤직 보관함 동기화가 켜져 있으면 앨범 자켓과 곡 정보가 '
-                      '애플 카탈로그 것으로 바뀝니다. 파일 앱에서 직접 넣으면 '
-                      '원본 그대로 유지됩니다.',
-                      style: AppText.sub.copyWith(color: AppColors.ink2),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
       ],
     );
   }
@@ -306,6 +315,7 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
     });
 
     final result = await ref.read(mediaImporterProvider).scanAppFolder();
+    await _record(ImportLog(at: DateTime.now(), added: result.added));
 
     if (!mounted) return;
     setState(() {
@@ -346,10 +356,12 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
     setState(() => _status = '기기를 훑는 중');
     final items = await NativeMedia.instance.scanDeviceAudio();
 
-    // 이미 라이브러리에 있는 곡은 빼고 보여준다.
+    // 이미 라이브러리에 있는 곡은 빼고 보여준다. 보관함 곡은 uri가 그대로
+    // 트랙의 주소가 되므로 그 값으로 견준다.
     final existing = await ref.read(libraryRepositoryProvider).allTracks();
     final have = existing.map((t) => t.filePath).toSet();
     final fresh = items
+        .where((i) => !have.contains(i.uri))
         .where((i) => i.path == null || !have.contains(i.path))
         .toList();
 
@@ -383,18 +395,44 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
 
     final importer = ref.read(mediaImporterProvider);
     var added = 0;
+    // 곡 정보를 어디서 읽었는지 센다. 음악 앱 값이 섞여 들어왔는지
+    // 가져온 다음에 보이게 하려는 것이다.
+    var fromFile = 0;
+    var fromLibrary = 0;
+
     for (var i = 0; i < items.length; i++) {
-      final ok = await importer.importNativeItem(items[i]);
-      if (ok) added++;
+      final outcome = await importer.importNativeItem(items[i]);
+      if (outcome.added) added++;
+      switch (outcome.tagSource) {
+        case 'file':
+          fromFile++;
+        case 'library':
+          fromLibrary++;
+      }
       if (!mounted) return;
       setState(() => _status = '${i + 1} / ${items.length}');
     }
 
+    final log = ImportLog(
+      at: DateTime.now(),
+      added: added,
+      tagsFromFile: fromFile,
+      tagsFromLibrary: fromLibrary,
+    );
+    await _record(log);
+
     if (!mounted) return;
     Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$added곡 추가됨')),
+      SnackBar(content: Text(log.summary)),
     );
+  }
+
+  /// 가져온 결과를 설정 > 정보에 남긴다. 스낵바는 스쳐 지나가는데, 곡
+  /// 정보를 어디서 읽었는지는 나중에 다시 봐야 할 수 있다.
+  Future<void> _record(ImportLog log) async {
+    if (log.added == 0) return;
+    await ref.read(importLogProvider.notifier).record(log);
   }
 
   Future<void> _pickFiles() async {
@@ -423,6 +461,8 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
       if (!mounted) return;
       setState(() => _status = '${i + 1} / ${files.length}');
     }
+
+    await _record(ImportLog(at: DateTime.now(), added: added));
 
     if (!mounted) return;
     Navigator.pop(context);

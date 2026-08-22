@@ -7,7 +7,9 @@ import 'audio/sleep_timer.dart';
 import 'data/db/database.dart';
 import 'data/models/tempo.dart';
 import 'data/platform/native_media.dart';
+import 'data/models/import_log.dart';
 import 'data/models/mark.dart';
+import 'data/repo/import_log_repository.dart';
 import 'data/repo/library_repository.dart';
 import 'data/repo/mark_repository.dart';
 import 'data/models/app_settings.dart';
@@ -75,6 +77,12 @@ final activeMarkProvider = Provider<Mark?>((ref) {
 
 final mediaImporterProvider = Provider<MediaImporter>(
   (ref) => MediaImporter(ref.watch(appDatabaseProvider)),
+);
+
+/// 마지막 가져오기 결과. 한 번도 안 넣었으면 null이다.
+final importLogProvider =
+    StateNotifierProvider<ImportLogController, ImportLog?>(
+  (ref) => ImportLogController(),
 );
 
 final playerControllerProvider =

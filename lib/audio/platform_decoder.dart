@@ -2,6 +2,8 @@
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 
+import '../core/track_source.dart';
+
 /// 열려 있는 플랫폼 디코더 하나.
 class DecoderHandle {
   const DecoderHandle({
@@ -47,7 +49,10 @@ class PlatformDecoder {
     '.oga',
   };
 
+  /// 음악 앱 보관함의 곡은 확장자와 무관하게 항상 이 통로로 간다. 엔진은
+  /// 파일만 열 수 있고 보관함 항목은 파일이 아니다.
   static bool needsPlatformDecoder(String path) =>
+      isLibraryPath(path) ||
       !engineNativeExtensions.contains(p.extension(path).toLowerCase());
 
   /// 열지 못하면 null. 호출한 쪽에서 엔진 기본 경로로 넘긴다.

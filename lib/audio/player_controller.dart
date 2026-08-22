@@ -6,6 +6,7 @@ import 'package:audio_service/audio_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/track_source.dart';
 import '../data/db/database.dart';
 import '../data/models/tempo.dart';
 import '../data/repo/library_repository.dart';
@@ -263,7 +264,9 @@ class PlayerController extends StateNotifier<PlayerState> {
     if (track == null) return;
     onWillPlay?.call();
 
-    if (!File(track.filePath).existsSync()) {
+    // 음악 앱 보관함을 참조하는 트랙은 파일이 아니다. 있는지는 열어봐야
+    // 알고, 못 열면 아래 catch에서 걸린다.
+    if (isFilePath(track.filePath) && !File(track.filePath).existsSync()) {
       debugPrint('파일이 없다: ${track.filePath}');
       await _failCurrent('파일을 찾을 수 없습니다');
       return;
@@ -294,7 +297,11 @@ class PlayerController extends StateNotifier<PlayerState> {
       _saveSession(now: true);
     } catch (e) {
       debugPrint('재생 실패 [${track.filePath}]: $e');
-      await _failCurrent('이 파일을 열지 못했습니다');
+      await _failCurrent(
+        isLibraryPath(track.filePath)
+            ? '음악 앱에서 이 곡을 찾지 못했습니다'
+            : '이 파일을 열지 못했습니다',
+      );
     }
   }
 

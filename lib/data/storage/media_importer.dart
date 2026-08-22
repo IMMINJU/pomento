@@ -28,6 +28,19 @@ class ImportResult {
   }
 }
 
+/// 기기 항목 한 건을 넣은 결과.
+class NativeImportOutcome {
+  const NativeImportOutcome({required this.added, this.tagSource});
+
+  static const NativeImportOutcome skipped = NativeImportOutcome(added: false);
+
+  final bool added;
+
+  /// 음악 앱 보관함의 곡일 때만 채워진다. 'file'이면 곡 정보를 파일 태그에서,
+  /// 'library'면 음악 앱 DB에서 읽었다는 뜻이다.
+  final String? tagSource;
+}
+
 /// 음원을 라이브러리에 들여오는 일을 맡는다.
 ///
 /// 원칙이 하나 있다. 원본 파일에는 절대 쓰지 않는다. 태그와 자켓은 가져오는
@@ -167,11 +180,13 @@ class MediaImporter {
   }
 
   /// 기기 미디어 저장소에서 찾은 항목을 넣는다.
-  Future<bool> importNativeItem(NativeAudioItem item) async {
+  Future<NativeImportOutcome> importNativeItem(NativeAudioItem item) async {
+    if (item.isLibraryItem) return _importLibraryItem(item);
+
     final path = item.path;
     if (path != null && File(path).existsSync()) {
       // 원본을 읽을 수 있으면 복사하지 않고 참조만 한다.
-      return importFile(
+      final ok = await importFile(
         path,
         copyIntoApp: false,
         fallbackTitle: item.title,
@@ -179,16 +194,17 @@ class MediaImporter {
         fallbackAlbum: item.album,
         fallbackDurationMs: item.durationMs,
       );
+      return NativeImportOutcome(added: ok);
     }
 
     // 경로를 못 읽으면 content URI에서 앱 저장소로 복사한다.
     final destName = '${_stableKey(item.uri)}.audio';
     final dest = p.join(AppPaths.instance.media.path, destName);
     if (!File(dest).existsSync()) {
-      final ok = await NativeMedia.instance.copyUriToFile(item.uri, dest);
-      if (!ok) return false;
+      final copied = await NativeMedia.instance.copyUriToFile(item.uri, dest);
+      if (!copied) return NativeImportOutcome.skipped;
     }
-    return importFile(
+    final ok = await importFile(
       dest,
       copyIntoApp: false,
       fallbackTitle: item.title,
@@ -196,6 +212,74 @@ class MediaImporter {
       fallbackAlbum: item.album,
       fallbackDurationMs: item.durationMs,
     );
+    return NativeImportOutcome(added: ok);
+  }
+
+  /// 음악 앱 보관함(iOS)의 곡을 참조로 들여온다.
+  ///
+  /// 파일을 복사하지 않는다. 보관함 하나를 통째로 가져오면 몇 기가가 되고,
+  /// 뽑아내는 과정에서 mp3가 AAC로 다시 인코딩된다. 재생할 때마다 보관함에서
+  /// 열어 PCM을 받는 쪽이 원본 그대로다.
+  ///
+  /// 태그와 자켓은 지금 한 번 읽어 앱 DB와 앱 폴더에 복사해둔다. 이후 음악
+  /// 앱 쪽 값이 바뀌어도 우리가 보여주는 값은 그대로다. 파일에서 가져올
+  /// 때와 같은 원칙이다.
+  Future<NativeImportOutcome> _importLibraryItem(NativeAudioItem item) async {
+    final existing = await (db.select(db.tracks)
+          ..where((t) => t.filePath.equals(item.uri)))
+        .getSingleOrNull();
+    if (existing != null) return NativeImportOutcome.skipped;
+
+    final tags = await NativeMedia.instance.libraryMetadata(item.uri);
+
+    // 목록에서 받은 값은 음악 앱 DB에서 온 것이라 뒤로 둔다.
+    final title = _firstNonEmpty([tags?.title, item.title, '제목 없음']);
+    final artist = _firstNonEmpty([
+      tags?.artist,
+      item.artist,
+      '알 수 없는 아티스트',
+    ]);
+    final album = _firstNonEmpty([tags?.album, item.album, '']);
+    final albumArtist = _firstNonEmpty([tags?.albumArtist, artist]);
+
+    final tagged = tags?.durationMs ?? 0;
+    final durationMs = tagged > 0 ? tagged : item.durationMs;
+
+    final artworkPath = await _saveLibraryArtwork(item.uri, tags?.artwork);
+
+    await db.into(db.tracks).insert(
+          TracksCompanion.insert(
+            filePath: item.uri,
+            title: title,
+            // 앱이 들고 있는 파일이 아니다. 트랙을 지워도 지울 파일이 없다.
+            managed: const Value(false),
+            artist: Value(artist),
+            album: Value(album),
+            albumArtist: Value(albumArtist),
+            year: Value(tags?.year),
+            trackNo: Value(tags?.trackNo),
+            durationMs: Value(durationMs),
+            sizeBytes: Value(item.sizeBytes),
+            artworkPath: Value(artworkPath),
+            contentKey: Value(contentKeyFor(artist, album, title)),
+            importedAt: DateTime.now(),
+          ),
+          mode: InsertMode.insertOrIgnore,
+        );
+    return NativeImportOutcome(added: true, tagSource: tags?.tagSource);
+  }
+
+  /// 보관함에서 받은 자켓을 앱 폴더에 둔다. 온라인 조회는 하지 않는다.
+  Future<String?> _saveLibraryArtwork(String uri, Uint8List? bytes) async {
+    if (bytes == null || bytes.isEmpty) return null;
+    final dest = AppPaths.instance.artworkFileFor(_stableKey(uri));
+    try {
+      await File(dest).writeAsBytes(bytes, flush: true);
+      return dest;
+    } catch (e) {
+      debugPrint('자켓 저장 실패 [$uri]: $e');
+      return null;
+    }
   }
 
   /// 태그와 자켓을 읽어 DB에 넣을 형태로 만든다.

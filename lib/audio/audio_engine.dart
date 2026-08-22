@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_soloud/flutter_soloud.dart';
 
+import '../core/track_source.dart';
 import '../data/models/eq_curve.dart';
 import '../data/models/preset.dart';
 import '../data/models/tempo.dart';
@@ -146,6 +147,11 @@ class AudioEngine {
     if (PlatformDecoder.needsPlatformDecoder(path)) {
       final decoded = await _playViaPlatformDecoder(path);
       if (decoded != null) return decoded;
+      // 보관함 참조는 엔진이 열 수 있는 것이 아니다. 곡이 보관함에서
+      // 사라졌거나 권한이 없는 경우라 여기서 끝낸다.
+      if (isLibraryPath(path)) {
+        throw StateError('보관함에서 곡을 열지 못했다: $path');
+      }
       // 플랫폼도 못 열면 엔진에 한 번 맡겨본다. 확장자가 틀렸을 수 있다.
     }
 

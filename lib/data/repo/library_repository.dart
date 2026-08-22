@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:drift/drift.dart';
 
+import '../../core/track_source.dart';
 import '../db/database.dart';
 import '../models/tempo.dart';
 
@@ -98,10 +99,15 @@ class LibraryRepository {
 
   /// 파일이 사라진 곡을 정리한다. managed가 아닌 트랙은 기기에서 파일이
   /// 지워졌을 수 있다.
+  ///
+  /// 음악 앱 보관함을 참조하는 트랙은 여기서 건드리지 않는다. 파일이 아니라
+  /// 존재 여부를 이 자리에서 알 수 없고, 보관함 조회 권한이 없는 상태에서
+  /// 훑으면 멀쩡한 곡을 다 지운다.
   Future<int> pruneMissing() async {
     final all = await allTracks();
     var removed = 0;
     for (final t in all) {
+      if (isLibraryPath(t.filePath)) continue;
       if (!File(t.filePath).existsSync()) {
         await deleteTrack(t.id, deleteFile: false);
         removed++;

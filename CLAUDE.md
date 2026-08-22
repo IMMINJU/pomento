@@ -13,8 +13,12 @@
 DB와 앱 폴더에 복사하고, 이후로는 사본만 본다. 애플뮤직 보관함 동기화가 로컬
 파일의 자켓과 메타데이터를 애플 카탈로그 것으로 바꿔버린 적이 있다.
 
-- iOS `Info.plist`에 **`NSAppleMusicUsageDescription`을 넣지 않는다.** 이 키가
-  없으면 `MPMediaLibrary` 접근이 시스템 단에서 막힌다.
+- iOS `Info.plist`의 **`NSAppleMusicUsageDescription`은 넣는다.** 한동안 일부러
+  비워두었다. 이 키가 없으면 `MPMediaLibrary` 접근이 시스템 단에서 막히고,
+  그러면 동기화가 바꿔놓은 값을 볼 일도 없어서였다. 지금은 보관함을 읽되
+  **태그와 자켓은 파일에 박힌 값을 먼저 보고** 못 읽을 때만 음악 앱 DB로
+  떨어진다. 어느 쪽에서 읽었는지 `tagSource`로 함께 돌려주고 가져오기 결과에
+  적는다. `MPMediaLibrary`에는 원본 파일에 쓰는 길이 없다.
 - 자켓 우선순위: 사용자 지정 → 태그에서 뽑아둔 것 → 폴더 표지 → 자동 생성.
   **온라인 조회는 하지 않는다.**
 - **자켓 위에는 아무것도 덮지 않는다.** 질감도 색면도 올리지 않는다.
@@ -98,6 +102,18 @@ m4a가 안 열린다. 그래서 `PlatformDecoder`가 플랫폼 코덱(Android `M
   `getStreamTimeConsumed`에 탐색 기준점(`_streamBase`)을 더해 낸다.
 - 되감을 수 없으므로 탐색은 디코더를 옮기고 버퍼를 비워 다시 채운다.
 - 엔진 루프를 못 쓴다. A-B와 한 곡 반복은 `PlayerController` 타이머가 처리한다.
+
+iOS에는 디코더가 둘이다. 앱 폴더의 파일은 `AVAudioFile`, 음악 앱 보관함의 곡은
+`AVAssetReader`가 푼다. **보관함 곡은 앱 폴더로 복사하지 않는다.** 트랙의
+`filePath` 자리에 `ipod://<persistentID>`가 들어가고 재생할 때마다 보관함에서
+연다. `AVAssetExportSession`으로 뽑는 방법은 passthrough가 안 돼서 mp3가 AAC로
+다시 인코딩되고, 보관함만큼 용량을 또 쓴다. `assetURL`은 저장하지 않는다.
+재동기화 후 무효가 될 수 있어서 영구 식별자만 남기고 그때그때 다시 푼다.
+`AVAssetReader`도 되감을 수 없어서 탐색은 리더를 새로 만든다.
+
+그래서 `filePath`가 파일이 아닐 수 있다. `File(...).existsSync()`로 판단하는
+자리는 `lib/core/track_source.dart`의 `isFilePath`로 가른다. `pruneMissing`이
+이 갈래를 안 타면 보관함 참조 트랙을 한 번에 전부 지운다.
 
 필터는 전역으로 **한 번만** 붙이고 이후엔 파라미터만 바꾼다. 재생 중에 붙였다
 떼면 소리가 튄다. 순서는 피치 → EQ → 리버브 → 에코 → 리미터. 리미터가 맨 끝인
@@ -322,6 +338,11 @@ python tool/make_paper.py                                  # 종이 질감
 - iOS 실기기 확인. 코드는 다 있고 TestFlight까지 올라갔지만 아이폰에서
   한 번도 돌려보지 않았다. m4a 재생, Spotify SDK, 파일 가져오기, 배경
   재생과 잠금화면 조작이 확인 대상이다
+- 음악 앱 보관함에서 태그를 파일에 박힌 값으로 읽을 수 있는지. `AVURLAsset`이
+  `ipod-library://` 자산의 컨테이너 메타데이터를 내주는지 애플이 문서로 밝혀둔
+  것이 없다. 가져오기 직후 스낵바와 **설정 > 정보 > 마지막 가져오기**에 어느
+  쪽에서 읽었는지 적힌다. "모두 파일에서 읽었습니다"면 오염 전 값이고, "음악
+  앱에서 읽었습니다"면 카탈로그 값이 들어온 것이다
 - iOS에서 Spotify SDK 확인
 - Firestore 프리셋 동기화. 지금은 JSON 복사·붙여넣기
 - 태그에서 ISRC 읽기. 지금은 제목·아티스트로만 맞춘다

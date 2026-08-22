@@ -202,7 +202,11 @@ class SettingsScreen extends ConsumerWidget {
 
               const SettingsSection(
                 title: '정보',
-                children: [_VersionRow(), _StartupWarningRow()],
+                children: [
+                  _VersionRow(),
+                  _LastImportRow(),
+                  _StartupWarningRow(),
+                ],
               ),
             ],
           ),
@@ -381,6 +385,27 @@ class _VersionRowState extends State<_VersionRow> {
   @override
   Widget build(BuildContext context) {
     return SettingsInfoRow(title: '버전', value: _value);
+  }
+}
+
+/// 마지막 가져오기. 한 번도 안 넣었으면 아무것도 안 그린다.
+///
+/// 음악 앱 보관함에서 가져왔다면 곡 정보를 파일 태그에서 읽었는지 음악 앱
+/// DB에서 읽었는지가 여기 남는다. 가져오기 직후 스낵바는 스쳐 지나간다.
+class _LastImportRow extends ConsumerWidget {
+  const _LastImportRow();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final log = ref.watch(importLogProvider);
+    if (log == null) return const SizedBox.shrink();
+
+    final source = log.tagSourceLine;
+    return SettingsInfoRow(
+      title: '마지막 가져오기',
+      value: '${log.added}곡',
+      description: source.isEmpty ? log.whenLabel : '${log.whenLabel} · $source',
+    );
   }
 }
 

@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/services.dart';
 
+import '../../core/track_source.dart';
+
 /// 기기 미디어 저장소에서 찾은 음원 한 건.
 class NativeAudioItem {
   const NativeAudioItem({
@@ -14,11 +16,18 @@ class NativeAudioItem {
     this.path,
   });
 
-  /// content:// URI. 경로가 없을 때 이걸로 복사해온다.
+  /// 이 곡을 가리키는 주소.
+  ///
+  /// 안드로이드는 content:// URI라 경로가 없을 때 이걸로 복사해온다. iOS는
+  /// `ipod://<persistentID>`라 복사하지 않고 이 값을 그대로 트랙의 주소로
+  /// 삼는다.
   final String uri;
 
   /// 직접 읽을 수 있는 절대 경로. 없으면 null이고 복사가 필요하다.
   final String? path;
+
+  /// 음악 앱 보관함의 곡인가. 참이면 파일이 아니라 참조로 들어간다.
+  bool get isLibraryItem => isLibraryPath(uri);
 
   final String title;
   final String artist;
@@ -34,6 +43,63 @@ class NativeAudioItem {
         album: m['album'] as String? ?? '',
         durationMs: (m['durationMs'] as num?)?.toInt() ?? 0,
         sizeBytes: (m['sizeBytes'] as num?)?.toInt() ?? 0,
+      );
+}
+
+/// 음악 앱 보관함의 곡 하나에서 읽어온 태그와 자켓.
+///
+/// 값의 출처가 둘이다. 파일에 박힌 태그를 먼저 보고, 못 읽으면 음악 앱
+/// DB로 떨어진다. 보관함 동기화가 음악 앱 DB의 자켓과 곡 정보를 애플
+/// 카탈로그 것으로 바꿔놓았을 수 있어서 이 순서를 지킨다. 어느 쪽을 썼는지
+/// [tagSource]와 [artworkSource]에 담겨 온다.
+class LibraryTags {
+  const LibraryTags({
+    required this.title,
+    required this.artist,
+    required this.album,
+    required this.albumArtist,
+    required this.durationMs,
+    required this.tagSource,
+    required this.artworkSource,
+    this.year,
+    this.trackNo,
+    this.artwork,
+  });
+
+  final String title;
+  final String artist;
+  final String album;
+  final String albumArtist;
+  final int durationMs;
+  final int? year;
+  final int? trackNo;
+
+  /// 자켓 원본 바이트. 없으면 null.
+  final Uint8List? artwork;
+
+  /// 'file'이면 파일 태그에서, 'library'면 음악 앱 DB에서 읽었다.
+  final String tagSource;
+
+  /// 'file', 'library', 'none' 중 하나.
+  final String artworkSource;
+
+  /// 태그를 파일에서 읽었나. 카탈로그 값이 섞이지 않았다는 뜻이다.
+  bool get tagsFromFile => tagSource == 'file';
+
+  /// 자켓을 파일에서 읽었나.
+  bool get artworkFromFile => artworkSource == 'file';
+
+  factory LibraryTags.fromMap(Map<dynamic, dynamic> m) => LibraryTags(
+        title: m['title'] as String? ?? '',
+        artist: m['artist'] as String? ?? '',
+        album: m['album'] as String? ?? '',
+        albumArtist: m['albumArtist'] as String? ?? '',
+        durationMs: (m['durationMs'] as num?)?.toInt() ?? 0,
+        year: (m['year'] as num?)?.toInt(),
+        trackNo: (m['trackNo'] as num?)?.toInt(),
+        artwork: m['artwork'] as Uint8List?,
+        tagSource: m['tagSource'] as String? ?? 'library',
+        artworkSource: m['artworkSource'] as String? ?? 'none',
       );
 }
 
@@ -80,11 +146,10 @@ class OutputDevice {
   int get hashCode => Object.hash(type, productName);
 }
 
-/// 안드로이드 MediaStore와 오디오 라우팅에 접근하는 채널.
+/// 기기의 음원 목록과 오디오 라우팅에 접근하는 채널.
 ///
-/// iOS에는 대응하는 구현이 없다. iOS는 앱 Documents 폴더의 파일만 다루고,
-/// 애플뮤직 보관함(MPMediaLibrary)에는 접근하지 않는다. Info.plist에
-/// NSAppleMusicUsageDescription을 넣지 않았으므로 접근 자체가 막혀 있다.
+/// 안드로이드는 MediaStore를, iOS는 음악 앱 보관함(MPMediaLibrary)을 훑는다.
+/// 둘 다 읽기만 한다. iOS는 앱 Documents 폴더의 파일도 그대로 다룬다.
 class NativeMedia {
   NativeMedia._();
 
@@ -97,7 +162,10 @@ class NativeMedia {
 
   Stream<OutputDevice>? _deviceStream;
 
-  /// 기기에 있는 음원 목록. 안드로이드 전용이고 그 외에서는 빈 목록이다.
+  /// 기기에 있는 음원 목록.
+  ///
+  /// 안드로이드는 MediaStore, iOS는 음악 앱 보관함에서 온다. iOS에서는 읽을
+  /// 수 없는 항목(애플뮤직 카탈로그에서 받은 곡)이 목록에서 빠진다.
   Future<List<NativeAudioItem>> scanDeviceAudio() async {
     try {
       final res = await _method.invokeMethod<List<dynamic>>('scanAudio');
@@ -109,6 +177,25 @@ class NativeMedia {
       return const [];
     } on PlatformException {
       return const [];
+    }
+  }
+
+  /// 보관함 곡 하나의 태그와 자켓. iOS 전용이고 그 외에서는 null이다.
+  ///
+  /// 곡마다 파일을 여는 일이라 목록 조회와 갈라두었다. 가져오기로 고른
+  /// 곡에만 부른다.
+  Future<LibraryTags?> libraryMetadata(String uri) async {
+    try {
+      final res = await _method.invokeMethod<Map<dynamic, dynamic>>(
+        'libraryMetadata',
+        {'uri': uri},
+      );
+      if (res == null) return null;
+      return LibraryTags.fromMap(res);
+    } on MissingPluginException {
+      return null;
+    } on PlatformException {
+      return null;
     }
   }
 
