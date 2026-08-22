@@ -155,8 +155,12 @@ private final class LibraryPcmDecoder: PcmSource {
 
     var rate = 44100
     var channelCount = 2
-    if let desc = track.formatDescriptions.first as? CMFormatDescription,
-      let asbd = CMAudioFormatDescriptionGetStreamBasicDescription(desc)?.pointee
+    // formatDescriptions는 [Any]로 오지만 오디오 트랙에서는 언제나
+    // CMFormatDescription이다. as?로 받으면 CoreFoundation 타입이라
+    // "항상 성공한다"는 진단이 뜨고, 최신 Swift에서 이것은 오류다.
+    if let first = track.formatDescriptions.first,
+      let asbd = CMAudioFormatDescriptionGetStreamBasicDescription(
+        first as! CMFormatDescription)?.pointee
     {
       if asbd.mSampleRate > 0 { rate = Int(asbd.mSampleRate) }
       if asbd.mChannelsPerFrame > 0 {
@@ -442,9 +446,9 @@ private final class LibraryPcmDecoder: PcmSource {
       if let year = fileYear ?? AppDelegate.yearOf(item) {
         out["year"] = year
       }
-      if let trackNo = fileTrackNo
-        ?? (item.albumTrackNumber > 0 ? item.albumTrackNumber : nil)
-      {
+      let libraryTrackNo: Int? =
+        item.albumTrackNumber > 0 ? item.albumTrackNumber : nil
+      if let trackNo = fileTrackNo ?? libraryTrackNo {
         out["trackNo"] = trackNo
       }
       if let artwork {
